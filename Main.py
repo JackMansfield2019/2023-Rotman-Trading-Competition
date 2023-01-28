@@ -48,6 +48,17 @@ def api_get(session : requests.Session, endpoint: str, **kwargs : dict) -> dict:
 		Example Usage:
 			api_get( s, "case")
 			api_get( s, "assets/history", ticker = "RTM", period = "14", limit ="100" )
+
+	TODO:
+		tell user when they are missing parameters for a certain endpoint
+			parse endpoint
+			check if required arguments are in dictonary
+			return list of arguments required 
+		tell user why a request failed(ex rate limit)
+			parse error message from api
+			handle exception
+			print corresponding error message
+		handle what happens if user provides an argument that the end point does not take.
 	'''
 	URL : str  = BASE_URL + endpoint
 
