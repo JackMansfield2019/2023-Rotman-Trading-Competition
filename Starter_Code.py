@@ -16,7 +16,7 @@ def signal_handler(signum, frame):
 	shutdown = True
 
 
-API_KEY = {'X-API-key': 'DV2931GT'} # Save your API key for easy access.
+API_KEY = {'X-API-key': '8CVIPIDF'} # Save your API key for easy access.
 BASE_URL = 'http://localhost:9999/v1/'
 shutdown = False
 
@@ -54,18 +54,27 @@ def api_get(session : requests.Session, endpoint: str, **kwargs : dict) -> dict:
 	resp = session.get(URL, params=kwargs)
 
 	if resp.ok:
-		payload : dict = json.loads(resp.json())
+		payload : dict = resp.json()
 		print('API GET SUCCESSFUL')
 
 	else:
 		print('API GET FAILED')
-		raise ApiException('Authorization error Please Check API Key.')
+		if(resp.status_code == 401):
+			raise ApiException("Unauthorized")
+		elif(resp.status_code == 429):
+			raise ApiException("Rate Limit Exceeded")
+		elif(resp.status_code == 500):
+			raise ApiException("Unexpected error 500 (internal server error) parameters may be wrong")
+		elif(resp.status_code == 400):
+			raise ApiException("Bad Request, parameters may be wrong")
+		else:
+			raise ApiException("other error code in orders: ", resp.status_code)
 		
 	return payload
 
-def api_put(session : requests.Session, endpoint: str, **kwargs : dict) -> dict:
+def api_post(session : requests.Session, endpoint: str, **kwargs : dict) -> dict:
 	'''
-	Makes a custom PUT request to a specified endpoint in the RIT API
+	Makes a custom POST request to a specified endpoint in the RIT API
 
 		Parameters:
 			Session (requests.Session): Current Session Object
@@ -76,19 +85,27 @@ def api_put(session : requests.Session, endpoint: str, **kwargs : dict) -> dict:
 			Payload (Dict): Dictonary contining the JSON returned from the endpoint
 	
 		Example Usage:
-			api_put( s, "orders", ticker = "RTM", type = "LIMIT", quantity = "100", action = "SELL")
+			api_post( s, "orders", ticker = "RTM", type = "LIMIT", quantity = "100", action = "SELL")
 	'''
 	URL : str  = BASE_URL + endpoint
 
-	resp = session.put(URL, params=kwargs)
+	resp = session.post(URL, params=kwargs)
 
 	if resp.ok:
-		payload : dict = json.loads(resp.json())
-		print('API PUT SUCCESSFUL')
-
+		payload : dict = resp.json()
+		print('API POST SUCCESSFUL')
 	else:
-		print('API PUT FAILED')
-		raise ApiException('Authorization error Please Check API Key.')
+		print('API POST FAILED')
+		if(resp.status_code == 401):
+			raise ApiException("Unauthorized")
+		elif(resp.status_code == 429):
+			raise ApiException("Rate Limit Exceeded")
+		elif(resp.status_code == 500):
+			raise ApiException("Unexpected error 500, possible error could include limit order without price specified")
+		elif(resp.status_code == 400):
+			raise ApiException("Bad Request")
+		else:
+			raise ApiException("other error code in orders: ", resp.status_code)
 
 	return payload
 
@@ -99,25 +116,34 @@ def api_delete(session : requests.Session, endpoint: str, **kwargs : dict) -> di
 		Parameters:
 			Session (requests.Session): Current Session Object
 			endpoint (String): name of the end point ex "case" or "assets/history" or "orders/{insert your id here}"
-			kwargs (Dict): Dictionary that maping each keyword to the value that we pass alongside it
+			kwargs (Dict): Dictionary that mapping each keyword to the value that we pass alongside it
 		
 		Returns:
-			Payload (Dict): Dictonary contining the JSON returned from the endpoint
+			Payload (Dict): Dictionary continuing the JSON returned from the endpoint
 	
 		Example Usage:
 			api_delete( s, "/tenders/{id}")
 	'''
 	URL : str  = BASE_URL + endpoint
 
-	resp = session.put(URL, params=kwargs)
+	resp = session.post(URL, params=kwargs)
 
 	if resp.ok:
-		payload : dict = json.loads(resp.json())
+		payload : dict = resp.json()
 		print('API DELETE SUCCESSFUL')
 
 	else:
 		print('API DELETE FAILED')
-		raise ApiException('Authorization error Please Check API Key.')
+		if(resp.status_code == 401):
+			raise ApiException("Unauthorized")
+		elif(resp.status_code == 429):
+			raise ApiException("Rate Limit Exceeded")
+		elif(resp.status_code == 500):
+			raise ApiException("Unexpected error 500 (internal server error)")
+		elif(resp.status_code == 400):
+			raise ApiException("Bad Request, parameters may be wrong")
+		else:
+			raise ApiException("other error code in orders: ", resp.status_code)
 
 	return payload
 
@@ -138,7 +164,7 @@ def main():
 			tick = api_get(s, "case")["tick"]
 
 			print('The case is on tick', tick) # Do something with the parsed data.
-
+				
 if __name__ == '__main__':
 	signal.signal(signal.SIGINT, signal_handler)
 	main()
