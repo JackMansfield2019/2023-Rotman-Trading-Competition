@@ -1,8 +1,6 @@
 import API_Requests as api
 from os import system
 
-# while the ticks are not over (between 0 and 600) print the current tender offers then erase the previous line and print the new one
-# this is done by using the \r character which moves the cursor to the beginning of the line
 
 NET_TRADING_LIMIT = 150000
 GROSS_TRADING_LIMIT = 250000
