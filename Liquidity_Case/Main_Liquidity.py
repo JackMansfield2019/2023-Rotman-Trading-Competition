@@ -218,7 +218,7 @@ def main():
 
         while tick < 600:
             tick = api.get(s, "case")["tick"]
-            # print the current tender offers
+            # get the current tender offers
             tenders = api.get(s, "tenders")
             if tenders != old_tenders and len(tenders) > 0:
                 old_tenders = tenders
