@@ -205,7 +205,7 @@ def main():
             volume_filled_sells, open_sells_volumne, sell_ids, sell_prices, sell_volumes = open_sells(s)
             volume_filled_buys, open_buys_volume, buy_ids, buy_prices, buy_volumes = open_buys(s)
             bid_price, ask_price = ticker_bid_ask(s, 'BULL') # NEED TO CHANGE TICKER
-
+            """
             # checks for tender offer
             endpoint = "tenders"
             args = None
@@ -227,83 +227,83 @@ def main():
                         endpoint = localhost + "tenders"
                         args = tender["tender_id"]
                         tender_decline_res = api_delete(session, endpoint, args)
+            """
+            # check if you have 0 open orders
+            if open_sells_volume == 0 and open_buys_volume == 0:
+                # both sides are filled now
+                single_side_filled = False
+
+                # calculate the spread between the bid and ask prices
+                bid_ask_spread = ask_price - bid_price
+
+                # set the prices
+                sell_price = ask_price
+                buy_price = bid_price
+
+                # the calculated spread is greater or equal to our set spread
+                if bid_ask_spread >= SPREAD:
+                    # buy and sell the maximum number of shares
+                    buy_sell(s, sell_price, buy_price)
+                    sleep(SPEEDBUMP)
+            
+            # there are outstanding open orders
             else:
-                # check if you have 0 open orders
-                if open_sells_volume == 0 and open_buys_volume == 0:
-                    # both sides are filled now
-                    single_side_filled = False
-
-                    # calculate the spread between the bid and ask prices
-                    bid_ask_spread = ask_price - bid_price
-
-                    # set the prices
-                    sell_price = ask_price
-                    buy_price = bid_price
-
-                    # the calculated spread is greater or equal to our set spread
-                    if bid_ask_spread >= SPREAD:
-                        # buy and sell the maximum number of shares
-                        buy_sell(s, sell_price, buy_price)
-                        sleep(SPEEDBUMP)
+                # one side of the book has no open orders
+                if not single_side_filled and (open_buys_volume == 0 or open_sells_volume == 0):
+                    single_side_filled = True
+                    single_side_transaction_time = tick
                 
-                # there are outstanding open orders
-                else:
-                    # one side of the book has no open orders
-                    if not single_side_filled and (open_buys_volume == 0 or open_sells_volume == 0):
-                        single_side_filled = True
-                        single_side_transaction_time = tick
+                # ask side has been completely filled
+                if open_sells_volume == 0:
+                    # current buy orders are at the top of the book
+                    if buy_price == bid_price:
+                        continue # next iteration of loop
                     
-                    # ask side has been completely filled
-                    if open_sells_volume == 0:
-                        # current buy orders are at the top of the book
-                        if buy_price == bid_price:
-                            continue # next iteration of loop
-                        
-                        # its been more than 3 seconds since a single side has been completely filled
-                        elif tick - single_side_transaction_time >= 3:
-                            # calculate the potential profits you can make
-                            next_buy_price = bid_price + 0.01
-                            potential_profit = sell_price - next_buy_price - 0.02
+                    # its been more than 3 seconds since a single side has been completely filled
+                    elif tick - single_side_transaction_time >= 3:
+                        # calculate the potential profits you can make
+                        next_buy_price = bid_price + 0.01
+                        potential_profit = sell_price - next_buy_price - 0.02
 
-                            # potential profit is greater than or equal to a cent or its been more than 6 seconds
-                            if potential_profit >= 0.01 or tick - single_side_transaction_time >= 6:
-                                action = 'BUY'
-                                number_of_orders = len(buy_ids) # NEED TO CHANGE
-                                buy_price = bid_price + 0.01
-                                price = buy_price
-                                ids = buy_ids
-                                volumes = buy_volumes
-                                volumes_filled = volume_filled_buys
-                            
-                                # delete buys and re-buy
-                                re_order(s, number_of_orders, ids, volumes_filled, volumes, price, action)
-                                sleep(SPEEDBUMP)
-                            
-                    # bid side has been completely filled
-                    elif open_buys_volume == 0:
-                        # current sell orders are at the top of the book
-                        if sell_price == ask_price:
-                            continue # next iteration of loop
+                        # potential profit is greater than or equal to a cent or its been more than 6 seconds
+                        if potential_profit >= 0.01 or tick - single_side_transaction_time >= 6:
+                            action = 'BUY'
+                            number_of_orders = len(buy_ids) # NEED TO CHANGE
+                            buy_price = bid_price + 0.01
+                            price = buy_price
+                            ids = buy_ids
+                            volumes = buy_volumes
+                            volumes_filled = volume_filled_buys
                         
-                        # its been more than 3 seconds since a single side has been completely filled
-                        elif tick - single_side_transaction_time >= 3:
-                            # calculate the potential profit you can make
-                            next_sell_price = ask_price - 0.01
-                            potential_profit = next_sell_price - buy_price - 0.02
-
-                            # potential profit is greater than or equal to a cent or its been more than 6 seconds
-                            if potential_profit >= 0.01 or tick - single_side_transaction_time >= 6:
-                                action = 'SELL'
-                                number_of_orders = len(sells_ids) # NEED TO CHANGE
-                                sell_price = ask_price - 0.01
-                                price = sell_price
-                                ids = sell_ids
-                                volumes = sell_volumes
-                                volumes_filled = volume_filled_sells
-                            
-                            # delete sells then re-sell
+                            # delete buys and re-buy
                             re_order(s, number_of_orders, ids, volumes_filled, volumes, price, action)
                             sleep(SPEEDBUMP)
+                        
+                # bid side has been completely filled
+                elif open_buys_volume == 0:
+                    # current sell orders are at the top of the book
+                    if sell_price == ask_price:
+                        continue # next iteration of loop
+                    
+                    # its been more than 3 seconds since a single side has been completely filled
+                    elif tick - single_side_transaction_time >= 3:
+                        # calculate the potential profit you can make
+                        next_sell_price = ask_price - 0.01
+                        potential_profit = next_sell_price - buy_price - 0.02
+
+                        # potential profit is greater than or equal to a cent or its been more than 6 seconds
+                        if potential_profit >= 0.01 or tick - single_side_transaction_time >= 6:
+                            action = 'SELL'
+                            number_of_orders = len(sells_ids) # NEED TO CHANGE
+                            sell_price = ask_price - 0.01
+                            price = sell_price
+                            ids = sell_ids
+                            volumes = sell_volumes
+                            volumes_filled = volume_filled_sells
+                        
+                        # delete sells then re-sell
+                        re_order(s, number_of_orders, ids, volumes_filled, volumes, price, action)
+                        sleep(SPEEDBUMP)
             
             # refresh the case time
             tick = get_tick(s)
