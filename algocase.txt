@@ -1,0 +1,16 @@
+Psuedo Code
+
+# tender offer
+while true:
+    if tender_offer == True:
+        # check constraints
+        if sum(long + short) <= gross_limit and sum(long - short) <= net_limit:
+            # calculate optimal distribution of tender offer across 3 secs
+            # unwinding simulation of possible portfolio using malik's algo
+            if net_profit_np > net_profit_cp:
+                accept
+                cp = np
+            else:
+                decline
+    else:
+        # update unwinding plan
