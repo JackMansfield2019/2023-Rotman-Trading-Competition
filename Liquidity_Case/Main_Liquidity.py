@@ -379,7 +379,7 @@ def main():
                 old_tenders = tenders
                 print("\n" + str(tenders[-1]["tender_id"])) # print the tender id
                 # decide which model to use based on the type of tender
-                if tenders[0]["is_fixed_bid"]:
+                if tenders[-1]["is_fixed_bid"]:
                     print(private_tender_model(s, tenders[-1]["tender_id"])) # Not sure if this is the correct index, may have to sort the tenders by time
                 else:
                     print(competitive_tender_model(s, tenders[-1]["tender_id"]))
