@@ -53,22 +53,11 @@ def api_get(session : requests.Session, endpoint: str, **kwargs : dict) -> dict:
 
 	resp = session.get(URL, params=kwargs)
 
-	if resp.ok:
-		payload : dict = resp.json()
-		print('API GET SUCCESSFUL')
+	payload : dict = resp.json()
 
-	else:
+	if not resp.ok:
 		print('API GET FAILED')
-		if(resp.status_code == 401):
-			raise ApiException("Unauthorized")
-		elif(resp.status_code == 429):
-			raise ApiException("Rate Limit Exceeded")
-		elif(resp.status_code == 500):
-			raise ApiException("Unexpected error 500 (internal server error) parameters may be wrong")
-		elif(resp.status_code == 400):
-			raise ApiException("Bad Request, parameters may be wrong")
-		else:
-			raise ApiException("other error code in orders: ", resp.status_code)
+		raise ApiException(payload['code'] + ": " + payload['message'])
 		
 	return payload
 
@@ -91,21 +80,11 @@ def api_post(session : requests.Session, endpoint: str, **kwargs : dict) -> dict
 
 	resp = session.post(URL, params=kwargs)
 
-	if resp.ok:
-		payload : dict = resp.json()
-		print('API POST SUCCESSFUL')
-	else:
+	payload : dict = resp.json()
+
+	if not resp.ok:
 		print('API POST FAILED')
-		if(resp.status_code == 401):
-			raise ApiException("Unauthorized")
-		elif(resp.status_code == 429):
-			raise ApiException("Rate Limit Exceeded")
-		elif(resp.status_code == 500):
-			raise ApiException("Unexpected error 500, possible error could include limit order without price specified")
-		elif(resp.status_code == 400):
-			raise ApiException("Bad Request")
-		else:
-			raise ApiException("other error code in orders: ", resp.status_code)
+		raise ApiException(payload['code'] + ": " + payload['message'])
 
 	return payload
 
@@ -128,22 +107,11 @@ def api_delete(session : requests.Session, endpoint: str, **kwargs : dict) -> di
 
 	resp = session.post(URL, params=kwargs)
 
-	if resp.ok:
-		payload : dict = resp.json()
-		print('API DELETE SUCCESSFUL')
+	payload : dict = resp.json()
 
-	else:
+	if not resp.ok:
 		print('API DELETE FAILED')
-		if(resp.status_code == 401):
-			raise ApiException("Unauthorized")
-		elif(resp.status_code == 429):
-			raise ApiException("Rate Limit Exceeded")
-		elif(resp.status_code == 500):
-			raise ApiException("Unexpected error 500 (internal server error)")
-		elif(resp.status_code == 400):
-			raise ApiException("Bad Request, parameters may be wrong")
-		else:
-			raise ApiException("other error code in orders: ", resp.status_code)
+		raise ApiException(payload['code'] + ": " + payload['message'])
 
 	return payload
 
