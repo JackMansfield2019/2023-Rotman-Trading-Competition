@@ -16,8 +16,8 @@ def signal_handler(signum, frame):
 	shutdown = True
 
 
-API_KEY = {'X-API-key': '8CVIPIDF'} # Save your API key for easy access.
-BASE_URL = 'http://localhost:9999/v1/'
+API_KEY = {'X-API-key': '0HKYGOCC'} # Save your API key for easy access.
+BASE_URL = 'http://flserver.rotman.utoronto.ca:16635/v1/'
 shutdown = False
 
 

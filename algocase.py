@@ -1,4 +1,4 @@
-from Starter_code import api_get, api_delete, api_post
+#from Starter_code import api_get, api_delete, api_post
 import requests
 import json
 from time import sleep
@@ -17,7 +17,7 @@ def signal_handler(signum, frame):
     shutdown = True
 
 # set API key to authenticate to the RIT client
-API_KEY = {'X-API-key': ''}
+API_KEY = {'X-API-key': '0HKYGOCC'}
 shutdown = False
 
 # SETTINGS
@@ -28,32 +28,31 @@ SPREAD = 0.5
 
 # returns the current 'tick' of the running case
 def get_tick(session):
-    resp = session.get('http://localhost:9999/v1/case')
-    if resp.ok():
-        case = resp.json()
-        return case['tick']
+    resp = session.get('https://flserver.rotman.utoronto.ca:16615/v1/case')
+    case = resp.json()
+    return case['tick']
     raise ApiException('Authorization error Please check API key.')
 
 # returns bid and ask first row for a given sec
-def ticker_bid_ask(sessions, ticker):
+def ticker_bid_ask(session, ticker):
     payload = {'ticker': ticker}
-    resp = session.get('http://localhost:9999/v1/securities/book', params=payload)
+    resp = session.get('https://flserver.rotman.utoronto.ca:16615/v1/securities/book', params=payload)
     if resp.ok:
         book = resp.json()
         return book['bids'][0]['price'], book['asks'][0]['price']
     raise ApiException('Authorization error Please Check API Key')
 
-def ticker_bid(sessions, ticker):
+def ticker_bid(session, ticker):
     payload = {'ticker': ticker}
-    resp = session.get('http://localhost:9999/v1/securities/book', params=payload)
+    resp = session.get('https://flserver.rotman.utoronto.ca:16615/v1/securities/book', params=payload)
     if resp.ok:
         book = resp.json()
         return book['bids'][0]['price']
     raise ApiException('Authorization error Please Check API Key')
 
-def ticker_ask(sessions, ticker):
+def ticker_ask(session, ticker):
     payload = {'ticker': ticker}
-    resp = session.get('http://localhost:9999/v1/securities/book', params=payload)
+    resp = session.get('https://flserver.rotman.utoronto.ca:16615/v1/securities/book', params=payload)
     if resp.ok:
         book = resp.json()
         return book['asks'][0]['price']
@@ -80,7 +79,7 @@ def almgren_chriss_optimal_execution(number_of_shares, time_to_sell_by, interval
 
 # returns info about all open sell orders
 def open_sells(session):
-    resp = session.get('http://localhost:9999/v1/orders?status=OPEN')
+    resp = session.get('https://flserver.rotman.utoronto.ca:16615/v1/orders?status=OPEN')
     if resp.ok:
         open_sells_volume = 0
         ids = []
@@ -100,7 +99,7 @@ def open_sells(session):
 
 # returns info about all open buy orders
 def open_buys(session):
-    resp = session.get('http://localhost:9999/v1/orders?status=OPEN')
+    resp = session.get('https://flserver.rotman.utoronto.ca:16615/v1/orders?status=OPEN')
     if resp.ok:
         open_buys_volume = 0
         ids = []
@@ -121,16 +120,14 @@ def open_buys(session):
 # buys and sells maximum number of shares
 def buy_sell(session, sell_price, buy_price):
     for i in range(MAX_ORDERS):
-        session.post('http://localhost:9999/v1/orders', params = {'ticker':'BULL',
-        'type': 'LIMIT', 'quantity': MAX_VOLUME 'price': sell_price, 'action': 'SELL'})
-        session.post('http://localhost:9999/v1/orders', params = {'ticker': 'BULL',
-        'type': 'LIMIT', 'quantity': MAX_VOLUME, 'price': buy_price, 'action': 'BUY'})
+        session.post('https://flserver.rotman.utoronto.ca:16615/v1/orders', params = {'ticker':'BULL','type': 'LIMIT', 'quantity': MAX_VOLUME, 'price': sell_price, 'action': 'SELL'})
+        session.post('https://flserver.rotman.utoronto.ca:16615/v1/orders', params = {'ticker': 'BULL','type': 'LIMIT', 'quantity': MAX_VOLUME, 'price': buy_price, 'action': 'BUY'})
 
 # buys/sells a specified quantity of shares of a specified ticker
 def submit_order(session, ticker, type_, quantity, action, price):
     if type_ == 'MARKET':
         mkt_params = {'ticker': ticker, 'type': type_, 'quantity': quantity, 'action': action}
-        resp = session.post('http://localhost:9999/v1/orders', params=mkt_params)
+        resp = session.post('https://flserver.rotman.utoronto.ca:16615/v1/orders', params=mkt_params)
         if resp.ok:
             mkt_order = resp.json()
             id = mkt_order['order_id']
@@ -141,7 +138,7 @@ def submit_order(session, ticker, type_, quantity, action, price):
             return None
     elif type_ == 'LIMIT':
         mkt_params = {'ticker': ticker, 'type': type_, 'quantity': quantity, 'price': price, 'action': action}
-        resp = session.post('http://localhost:9999/v1/orders', params=mkt_params)
+        resp = session.post('https://flserver.rotman.utoronto.ca:16615/v1/orders', params=mkt_params)
         if resp.ok:
             mkt_order = resp.json()
             id = mkt_order['order_id']
@@ -152,7 +149,7 @@ def submit_order(session, ticker, type_, quantity, action, price):
             return None
 
 def delete_order(session, order_id):
-    resp = session.delete('http://localhost:9999/v1/orders/{}'.format(order_id))
+    resp = session.delete('https://flserver.rotman.utoronto.ca:16615/v1/orders/{}'.format(order_id))
     if resp.ok:
         status = resp.json()
         success = status['success']
@@ -171,9 +168,9 @@ def re_order(session, number_of_orders, ids, volumes_filled, volumes, price, act
             volume = MAX_VOLUME - volume_filled
         
         # delete then re-purchase
-        deleted = session.delete('http://localhost:9999/v1/orders/{}'.format(id))
+        deleted = session.delete('https://flserver.rotman.utoronto.ca:16615/v1/orders/{}'.format(id))
         if deleted.ok:
-            session.post('http://localhost:9999/v1/orders', params = {'ticker':'BULL', 'type': 'LIMIT', 'quantity': volume, 'price': price, 'action': action})
+            session.post('https://flserver.rotman.utoronto.ca:16615/v1/orders', params = {'ticker':'BULL', 'type': 'LIMIT', 'quantity': volume, 'price': price, 'action': action})
 
 def main():
     # instantiate variables about all the open buy orders
@@ -220,11 +217,11 @@ def main():
                     profit_np = unwinding_algo_simulation()
                     profit_cp = unwinding_algo_simulation()
                     if profit_np > profit_cp:
-                        endpoint = localhost + "tenders"
+                        endpoint = flserver.rotman.utoronto.ca + "tenders"
                         args = tender["tender_id"]
                         tender_accept_res = api_post(session, endpoint, args)
                     else:
-                        endpoint = localhost + "tenders"
+                        endpoint = flserver.rotman.utoronto.ca + "tenders"
                         args = tender["tender_id"]
                         tender_decline_res = api_delete(session, endpoint, args)
             """
@@ -294,7 +291,7 @@ def main():
                         # potential profit is greater than or equal to a cent or its been more than 6 seconds
                         if potential_profit >= 0.01 or tick - single_side_transaction_time >= 6:
                             action = 'SELL'
-                            number_of_orders = len(sells_ids) # NEED TO CHANGE
+                            number_of_orders = len(sell_ids) # NEED TO CHANGE
                             sell_price = ask_price - 0.01
                             price = sell_price
                             ids = sell_ids
