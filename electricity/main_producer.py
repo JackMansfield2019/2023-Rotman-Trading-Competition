@@ -256,7 +256,7 @@ def main():
 							print("Buy NG that is less than: ", float((ARAE_Range[0]+ARAE_Range[1])/16))
 							print("Buy Futures that are less than: ", float((ARAE_Range[0]+ARAE_Range[1])/2))
 							print("Use all saved NG")
-							
+
 							break
 
 				else:
@@ -356,99 +356,6 @@ def main():
 			
 			# parse news
 			sleep(1)
-
-'''
-Elec = 0
-'''
-
-'''
-current day = 1
-Producer days 1-4
-grab latest news 
-if the ticker==1 or 2 
-    check for the intial forecast 
-    if the headline has sunlight in it
-        store range in Solar_Range : list
-        Set estimated solar hours by adding upper and lower bound and dividing by two
-        caclulate for ELEC-dayX contracts by multiplying the solar hours by 6
-if the ticker==89 or 90 
-    grab latest news 
-    if the headline has sunlight in it
-        if the lower bound > solar range[0]
-            set lower bound = solar range[0] 
-        if the upper bound < solar range[1]
-            set upper bound = solar range[1]
-        Calculate solar hours by adding solar range[0] and solar range[1] and dividing by 2
-        Calculate estimated ELEC_dayx contracts by multiplying the solar hours by 6
-
-if the ticker==149 or 150 
-    grab latest news for price volume bulletin 
-    grab -1 of that index news for final amount of sunlight 
-    use that to calculate the final amount of ELEC-dayX
-    Subtract the final amount from the variable ELEC
-    Display the NG needed to be purchased by multiplying the ELEC variable by 40. 
-
-if the ticker>=180
-    grab latest news for price volume bulletin 
-    if latest news had in headline price volume bulletin 2
-        set current_tick = 0 while incrementing day by 1
-
-day 5 specific:
-if ticker == 149 or 150 
-    grab latest news
-    if latest news has in it headline price volume bulletin
-        (Lower RAE + upper RAE)/2 = Average RAE
-        if ARAE> ELEC-F
-            buy as much ELEC-F
-        if ARAE > NG
-            buy and produce as much NG
-		if holding NG 
-			use that as well for production
-'''
-
-'''
-demand = 0
-current day =1
-Distributor days 1-4
-Set lower tn  = 0 and upper tn  = 0, AT = 0 
-
-if tick == 1 or 2 
-    buy from the market the amount needed to sell, which is stored in the demand variable
-    grab the first range of average temperatures and put this in list called Range_AT 
-    variable At = (Range_AT[0] + RangeAT[1])/2
-    Calculate demand through plugging AT into the formula 200-15AT + 0.8AT^2 - 0.01AT^3
-if tick == 89 or 90 
-    grab the second range
-    if the lower bound > Range_AT[0]
-        set lower bound = Range_AT[0] 
-    if the upper bound < Range_AT[1]
-        set upper bound = Range_AT[1]
-    Calculate demand through plugging AT into the formula 200-15AT + 0.8AT^2 - 0.01AT^3
-
-if tick == 149 or 150 
-    calculate consumer demand using the exact AT scraped using 200-15AT + 0.8AT^2 - 0.01AT^3
-    Store this in the variable demand
-
-'''
-
-'''
-current day =1
-debt = 0
-owed = 0
-Trader
-Check if there is a tender each tick
-    if selling ELEC-F for > 70 per ELEC-F
-        accept the tender
-        Add amount of ELEC-F to the ELEC variable
-        Add the amount to the debt variable
-Check if owed > 0 each tick:
-    check if trader bought any contract, if they did subtract from owed amount
-    display owed amount if tick%10 == 0
-
-if tick >= 180:
-    owed = debt
-    debt = 0
-'''
 
 if __name__ == '__main__':
 	signal.signal(signal.SIGINT, signal_handler)
