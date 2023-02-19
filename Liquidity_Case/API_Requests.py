@@ -105,7 +105,7 @@ def delete(session : requests.Session, endpoint: str, **kwargs : dict) -> dict:
 	'''
 	URL : str  = BASE_URL + endpoint
 
-	resp = session.post(URL, params=kwargs)
+	resp = session.delete(URL, params=kwargs)
 
 	payload : dict = resp.json()
 

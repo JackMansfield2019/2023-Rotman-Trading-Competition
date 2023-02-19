@@ -1,12 +1,16 @@
+# pip install tabulate pandas requests
+
 import API_Requests as api
 from os import system
-
-
+import pandas as pd
+from tabulate import tabulate
 LAST_MINUTE_THRESHOLD = 60
-LIQUIDITY_RATIO_THRESHOLD = 0.2
+LIQUIDITY_RATIO_THRESHOLD = 100
 VOLUME_RATIO_THRESHOLD = 1.0
+MAX_SPREAD = .15
 
 def private_tender_model(s : api.requests.Session, tender_id : int):
+
     tender : dict = {}
 
     for t in api.get(s, "tenders"):
@@ -17,6 +21,11 @@ def private_tender_model(s : api.requests.Session, tender_id : int):
     if tender == {}:
         return "Tender not found by private_tender_model"
     
+    bid = api.get(s, "securities", ticker = tender["ticker"])[0]["bid"]
+    ask = api.get(s, "securities", ticker = tender["ticker"])[0]["ask"]
+
+    spread = 100*(ask/bid - 1)
+
     tick : int = int(tender["tick"])
     ticker : str = tender["ticker"]
     price_offered : float = float(tender["price"])
@@ -47,10 +56,10 @@ def private_tender_model(s : api.requests.Session, tender_id : int):
                 if potential_profit > value_of_offer:
                     decision = "ACCEPT THE PRIVATE BUY OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker)
                     unload = "LAST MINUTE UNLOAD: SELL ALL FOR MARKET PRICE: " + str(int(quantity_offered / api.get(s, "securities", ticker = ticker)[0]["max_trade_size"])) + " SHARES OF " + str(api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]) + ", THEN " + str(quantity_offered % api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]) + " SHARES"
-                    return "\n" + decision + "\n" + unload
+                    return [("Private", action, ticker, quantity_offered, price_offered, ask, spread, "\u001b[32mACCEPT\u001b[37m", "PROFITABLE LAST MINUTE"), (ticker, action, int(quantity_offered / api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]), api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], quantity_offered % api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], "MKT")]
                 else:
                     decision = "REJECT THE PRIVATE BUY OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker) + "\nTIME LOW, NOT PROFITABLE"
-                    return "\n" + decision
+                    return [("Private", action, ticker, quantity_offered, price_offered, ask, spread, "\u001b[31mREJECT\u001b[37m", "NOT PROFITABLE LAST MINUTE")]
 
             else:
                 # for risk percentage, how do we calculate total capital?
@@ -65,22 +74,26 @@ def private_tender_model(s : api.requests.Session, tender_id : int):
                     bids_and_asks = api.get(s, "securities/book", ticker = ticker, limit = 10000)
                     
                     bid_volume : int = 0
-                    for bid in bids_and_asks["bids"]:
-                        bid_volume += bid["quantity"] - bid["quantity_filled"]
+                    for b in bids_and_asks["bids"]:
+                        bid_volume += b["quantity"] - b["quantity_filled"]
                     
                     ask_volume : int = 0
-                    for ask in bids_and_asks["asks"]:
-                        ask_volume += ask["quantity"] - ask["quantity_filled"]
+                    for a in bids_and_asks["asks"]:
+                        ask_volume += a["quantity"] - a["quantity_filled"]
 
                     print("bid_volume: " + str(bid_volume))
                     print("ask_volume: " + str(ask_volume))
 
-                    if bid_volume / ask_volume > VOLUME_RATIO_THRESHOLD: # sellers have the upper hand
+                    spread = 100*(api.get(s, "securities", ticker = ticker)[0]["ask"]/api.get(s, "securities", ticker = ticker)[0]["bid"] - 1)
+
+                    print("spread: " + str(spread))
+
+                    if spread < MAX_SPREAD: # sellers have the upper hand
 
                         vwap : float = 0
 
-                        for ask in bids_and_asks["asks"]:
-                            vwap += ask["price"] * (ask["quantity"] - ask["quantity_filled"])
+                        for a in bids_and_asks["asks"]:
+                            vwap += a["price"] * (a["quantity"] - a["quantity_filled"])
                         
                         vwap /= ask_volume
 
@@ -88,20 +101,20 @@ def private_tender_model(s : api.requests.Session, tender_id : int):
 
                         if sell_price > price_offered:
                             decision = "ACCEPT THE PRIVATE BUY OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker)
-                            unload = "MAKE " + str(int(quantity_offered / api.get(s, "securities", ticker = ticker)[0]["max_trade_size"])) + " LIMIT SELL ORDERS OF " + str(api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]) + " FOR " + str(sell_price) + " EACH, THEN " + str(quantity_offered % api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]) + " SHARES"
-                            return "\n" + decision + "\n" + unload
+                            unload = "MAKE " + str(int(quantity_offered / api.get(s, "securities", ticker = ticker)[0]["max_trade_size"])) + " LIMIT SELL ORDERS OF " + str(api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]) + " FOR " + str(round(sell_price, 2)) + " EACH, THEN " + str(quantity_offered % api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]) + " SHARES"
+                            return [("Private", action, ticker, quantity_offered, price_offered, ask, spread, "\u001b[32mACCEPT\u001b[37m", "PROFITABLE"), (ticker, action, int(quantity_offered / api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]), api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], quantity_offered % api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], round(sell_price, 2))]
                         else:
                             decision = "REJECT THE PRIVATE BUY OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker) + "\nLIMIT SELL PRICE NOT PROFITABLE"
-                            return "\n" + decision
+                            return [("Private", action, ticker, quantity_offered, price_offered, ask, spread, "\u001b[31mREJECT\u001b[37m", "NOT PROFITABLE")]
                     else:
-                        decision = "REJECT THE PRIVATE BUY OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker) + "\nBUYERS HAVE THE UPPER HAND"
-                        return "\n" + decision
+                        decision = "REJECT THE PRIVATE BUY OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker) + "\nSPREAD TOO HIGH"
+                        return [("Private", action, ticker, quantity_offered, price_offered, ask, spread, "\u001b[31mREJECT\u001b[37m", "SPREAD TOO HIGH")]
                 else:
                     decision = "REJECT THE PRIVATE BUY OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker) + "\nLIQUIDITY RATIO TOO HIGH"
-                    return "\n" + decision
+                    return [("Private", action, ticker, quantity_offered, price_offered, ask, spread, "\u001b[31mREJECT\u001b[37m", "LIQUIDITY RATIO")]
         else:
             decision = "REJECT THE PRIVATE BUY OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker) + "\nLIMITS EXCEEDED"
-            return "\n" + decision
+            return [("Private", action, ticker, quantity_offered, price_offered, ask, spread, "\u001b[31mREJECT\u001b[37m", "LIMITS EXCEEDED")]
     
     elif action == "SELL":
         if gross_positions + quantity_offered < api.get(s, "limits")[0]['gross_limit']:
@@ -141,10 +154,10 @@ def private_tender_model(s : api.requests.Session, tender_id : int):
                     if potential_profit + instant_profit_from_sell > 0:
                         decision = "ACCEPT THE PRIVATE SELL OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker)
                         unload = "LAST MINUTE UNLOAD: BUY BACK ALL " + str(shares_to_be_shorted) + " SHARES FOR MARKET PRICE: " + str(int(shares_to_be_shorted / api.get(s, "securities", ticker = ticker)[0]["max_trade_size"])) + " SHARES OF " + str(api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]) + ", THEN " + str(shares_to_be_shorted % api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]) + " SHARES"
-                        return "\n" + decision + "\n" + unload
+                        return [("Private", action, ticker, quantity_offered, price_offered, bid, spread, "\u001b[32mACCEPT\u001b[37m", "PROFITABLE LAST MINUTE"), (ticker, action, int(shares_to_be_shorted / api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]), api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], shares_to_be_shorted % api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], "MKT")]
                     else:
                         decision = "REJECT THE PRIVATE SELL OFFER FOR " + str(quantity_offered) + " SHARES OF " + ticker + "\nTIME LOW, NOT PROFITABLE"
-                        return "\n" + decision               
+                        return [("Private", action, ticker, quantity_offered, price_offered, bid, spread, "\u001b[31mREJECT\u001b[37m", "NOT PROFITABLE LAST MINUTE")]          
                 else:
                     liquidity_ratio : float = shares_to_be_shorted / api.get(s, "securities", ticker = ticker)[0]["total_volume"]
 
@@ -153,22 +166,26 @@ def private_tender_model(s : api.requests.Session, tender_id : int):
                         bids_and_asks = api.get(s, "securities/book", ticker = ticker, limit = 10000)
                         
                         bid_volume : int = 0
-                        for bid in bids_and_asks["bids"]:
-                            bid_volume += bid["quantity"] - bid["quantity_filled"]
+                        for b in bids_and_asks["bids"]:
+                            bid_volume += b["quantity"] - b["quantity_filled"]
                         
                         ask_volume : int = 0
-                        for ask in bids_and_asks["asks"]:
-                            ask_volume += ask["quantity"] - ask["quantity_filled"]
+                        for a in bids_and_asks["asks"]:
+                            ask_volume += a["quantity"] - a["quantity_filled"]
 
                         print("bid volume: " + str(bid_volume))
                         print("ask volume: " + str(ask_volume))
 
-                        if ask_volume / bid_volume > VOLUME_RATIO_THRESHOLD: # buyers have the upper hand
+                        spread = 100*(api.get(s, "securities", ticker = ticker)[0]["ask"]/api.get(s, "securities", ticker = ticker)[0]["bid"] - 1)
+
+                        print("spread: " + str(spread))
+
+                        if spread < MAX_SPREAD: # buyers have the upper hand
 
                             vwap : float = 0
 
-                            for bid in bids_and_asks["bids"]:
-                                vwap += bid["price"] * (bid["quantity"] - bid["quantity_filled"])
+                            for b in bids_and_asks["bids"]:
+                                vwap += b["price"] * (b["quantity"] - b["quantity_filled"])
                             
                             vwap /= bid_volume
 
@@ -178,32 +195,32 @@ def private_tender_model(s : api.requests.Session, tender_id : int):
 
                             if instant_profit_from_sell + potential_profit > 0:
                                 decision = "ACCEPT THE PRIVATE SELL OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker)
-                                unload = "MAKE " + str(int(shares_to_be_shorted / api.get(s, "securities", ticker = ticker)[0]["max_trade_size"])) + " LIMIT BUY ORDERS OF " + str(api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]) + " FOR " + str(buy_price) + " EACH, THEN " + str(shares_to_be_shorted % api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]) + " SHARES"
-                                return "\n" + decision + "\n" + unload
+                                unload = "MAKE " + str(int(shares_to_be_shorted / api.get(s, "securities", ticker = ticker)[0]["max_trade_size"])) + " LIMIT BUY ORDERS OF " + str(api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]) + " FOR " + str(round(buy_price, 2)) + " EACH, THEN " + str(shares_to_be_shorted % api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]) + " SHARES"
+                                return [("Private", action, ticker, quantity_offered, price_offered, bid, spread, "\u001b[32mACCEPT\u001b[37m", "PROFITABLE"), (ticker, action, int(shares_to_be_shorted / api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]), api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], shares_to_be_shorted % api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], round(buy_price, 2))]
                             
                             else:
                                 decision = "REJECT THE PRIVATE SELL OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker) + "\nINSTANT PROFIT + POTENTIAL LESS THAN 0"
-                                return "\n" + decision
+                                return [("Private", action, ticker, quantity_offered, price_offered, bid, spread, "\u001b[31mREJECT\u001b[37m", "NOT PROFITABLE")]
                         else:
                             # we may want to accept here: buying back the shorts is disadvantageous because sellers have the upper hand
                             # but instant profit may outweigh the disadvantage of buying back the shorts
-                            decision = "REJECT THE PRIVATE SELL OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker) + "\nSELLERS HAVE THE UPPER HAND"
-                            return "\n" + decision
+                            decision = "REJECT THE PRIVATE SELL OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker) + "\nSPREAD TOO HIGH"
+                            return [("Private", action, ticker, quantity_offered, price_offered, bid, spread, "\u001b[31mREJECT\u001b[37m", "SPREAD TOO HIGH")]
 
                     else:
                         decision = "REJECT THE PRIVATE SELL OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker) + "\nLIQUIDITY RATIO TOO HIGH"
-                        return "\n" + decision
+                        return [("Private", action, ticker, quantity_offered, price_offered, bid, spread, "\u001b[31mREJECT\u001b[37m", "LIQUIDITY RATIO TOO HIGH")]
 
             elif instant_profit_from_sell > 0:
                 decision = "ACCEPT THE PRIVATE SELL OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker)
                 unload = "WE OWN ALL OF THE SHARES, SELL ALL FOR OFFER PRICE"
-                return "\n" + decision + "\n" + unload
+                return [("Private", action, ticker, quantity_offered, price_offered, bid, spread, "\u001b[32mACCEPT\u001b[37m", "INSTANT PROFIT")]
             else:
                 decision = "REJECT THE PRIVATE SELL OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker) + "\nINSTANT PROFIT LESS THAN 0"
-                return "\n" + decision
+                return [("Private", action, ticker, quantity_offered, price_offered, bid, spread, "\u001b[31mREJECT\u001b[37m", "NOT PROFITABLE INSTANTLY")]
         else:
             decision = "REJECT THE PRIVATE SELL OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker) + "\nLIMITS EXCEEDED"
-            return "\n" + decision
+            return [("Private", action, ticker, quantity_offered, price_offered, bid, spread, "\u001b[31mREJECT\u001b[37m", "LIMITS EXCEEDED")]
 
 def competitive_tender_model(s : api.requests.Session, tender_id : int):
     tender : dict = {}
@@ -216,11 +233,16 @@ def competitive_tender_model(s : api.requests.Session, tender_id : int):
     if tender == {}:
         return "Tender not found by private_tender_model"
     
-    print("\nWaiting on competitive tender " + str(tender_id) + " to get close to expiring")
+    # print current market price for the security
+    print("current ask for this security: " + str(api.get(s, "securities", ticker = tender["ticker"])[0]["ask"]))
+    print("current bid for this security: " + str(api.get(s, "securities", ticker = tender["ticker"])[0]["bid"]))
+
+
+    # print("\nWaiting on competitive tender " + str(tender_id) + " to get close to expiring")
 
     # wait until 10 seconds before the tender ends
-    while api.get(s, "case")["tick"] < tender["expires"] - 10:
-        api.sleep(api.SPEEDBUMP)
+    # while api.get(s, "case")["tick"] < tender["expires"] - 10:
+      #  api.sleep(api.SPEEDBUMP)
 
     tick : int = int(tender["tick"])
     ticker : str = tender["ticker"]
@@ -249,37 +271,41 @@ def competitive_tender_model(s : api.requests.Session, tender_id : int):
                 if liquidity_ratio < LIQUIDITY_RATIO_THRESHOLD:
                                         
                     bid_volume : int = 0
-                    for bid in bids_and_asks["bids"]:
-                        bid_volume += bid["quantity"] - bid["quantity_filled"]
+                    for b in bids_and_asks["bids"]:
+                        bid_volume += b["quantity"] - b["quantity_filled"]
                     
                     ask_volume : int = 0
-                    for ask in bids_and_asks["asks"]:
-                        ask_volume += ask["quantity"] - ask["quantity_filled"]
+                    for a in bids_and_asks["asks"]:
+                        ask_volume += a["quantity"] - a["quantity_filled"]
 
                     print("bid_volume: " + str(bid_volume))
                     print("ask_volume: " + str(ask_volume))
 
-                    if bid_volume / ask_volume > VOLUME_RATIO_THRESHOLD: # sellers have the upper hand
+                    spread = 100*(api.get(s, "securities", ticker = ticker)[0]["ask"]/api.get(s, "securities", ticker = ticker)[0]["bid"] - 1)
+
+                    print("spread: " + str(spread))
+
+                    if spread < MAX_SPREAD: # sellers have the upper hand
 
                         vwap : float = 0
 
-                        for ask in bids_and_asks["asks"]:
-                            vwap += ask["price"] * (ask["quantity"] - ask["quantity_filled"])
+                        for a in bids_and_asks["asks"]:
+                            vwap += a["price"] * (a["quantity"] - a["quantity_filled"])
                         
                         vwap /= ask_volume
 
                         sell_price = ((vwap + bids_and_asks["asks"][0]["price"]) / 2 + bids_and_asks["asks"][0]["price"]) / 2
 
                         if sell_price > buy_price_to_offer:
-                            decision = "ACCEPT THE COMPETITIVE BUY OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker) + " AT PRICE: " + str(buy_price_to_offer)
-                            unload = "MAKE " + str(int(quantity_offered / api.get(s, "securities", ticker = ticker)[0]["max_trade_size"])) + " LIMIT SELL ORDERS OF " + str(api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]) + " FOR " + str(sell_price) + " EACH, THEN " + str(quantity_offered % api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]) + " SHARES"
+                            decision = "ACCEPT THE COMPETITIVE BUY OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker) + " AT PRICE: " + str(round(buy_price_to_offer, 2))
+                            unload = "MAKE " + str(int(quantity_offered / api.get(s, "securities", ticker = ticker)[0]["max_trade_size"])) + " LIMIT SELL ORDERS OF " + str(api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]) + " FOR " + str(round(sell_price, 2)) + " EACH, THEN " + str(quantity_offered % api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]) + " SHARES"
                             return "\n" + decision + "\n" + unload
                         else:
                             decision = "REJECT THE COMPETITIVE BUY OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker) + "\nLIMIT SELL PRICE TOO LOW"
                             return "\n" + decision
 
                     else:
-                        decision = "REJECT THE COMPETITIVE BUY OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker) + "\nBUYERS HAVE THE UPPER HAND"
+                        decision = "REJECT THE COMPETITIVE BUY OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker) + "\nSPREAD TOO HIGH"
                         return "\n" + decision
                 else:
                     decision = "REJECT THE COMPETITIVE BUY OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker) + "\nLIQUIDITY RATIO TOO HIGH"
@@ -320,22 +346,26 @@ def competitive_tender_model(s : api.requests.Session, tender_id : int):
                     if liquidity_ratio < LIQUIDITY_RATIO_THRESHOLD:
                                             
                         bid_volume : int = 0
-                        for bid in bids_and_asks["bids"]:
-                            bid_volume += bid["quantity"] - bid["quantity_filled"]
+                        for b in bids_and_asks["bids"]:
+                            bid_volume += b["quantity"] - b["quantity_filled"]
                         
                         ask_volume : int = 0
-                        for ask in bids_and_asks["asks"]:
-                            ask_volume += ask["quantity"] - ask["quantity_filled"]
+                        for a in bids_and_asks["asks"]:
+                            ask_volume += a["quantity"] - a["quantity_filled"]
 
                         print("bid volume: " + str(bid_volume))
                         print("ask volume: " + str(ask_volume))
 
-                        if ask_volume / bid_volume > VOLUME_RATIO_THRESHOLD: # buyers have the upper hand
+                        spread = 100*(api.get(s, "securities", ticker = ticker)[0]["ask"]/api.get(s, "securities", ticker = ticker)[0]["bid"] - 1)
+
+                        print("spread: " + str(spread))
+
+                        if spread < MAX_SPREAD: # buyers have the upper hand
 
                             vwap : float = 0
 
-                            for bid in bids_and_asks["bids"]:
-                                vwap += bid["price"] * (bid["quantity"] - bid["quantity_filled"])
+                            for b in bids_and_asks["bids"]:
+                                vwap += b["price"] * (b["quantity"] - b["quantity_filled"])
                             
                             vwap /= bid_volume
                             
@@ -345,7 +375,7 @@ def competitive_tender_model(s : api.requests.Session, tender_id : int):
 
                             if instant_profit_from_sell + potential_profit > 0:
                                 decision = "ACCEPT THE COMPETITIVE SELL OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker) + " AT PRICE: " + str(sell_price_to_offer)
-                                unload = "MAKE " + str(int(shares_to_be_shorted / api.get(s, "securities", ticker = ticker)[0]["max_trade_size"])) + " LIMIT BUY ORDERS OF " + str(api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]) + " FOR " + str(buy_price) + " EACH, THEN " + str(shares_to_be_shorted % api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]) + " SHARES"
+                                unload = "MAKE " + str(int(shares_to_be_shorted / api.get(s, "securities", ticker = ticker)[0]["max_trade_size"])) + " LIMIT BUY ORDERS OF " + str(api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]) + " FOR " + str(round(buy_price, 2)) + " EACH, THEN " + str(shares_to_be_shorted % api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]) + " SHARES"
                                 return "\n" + decision + "\n" + unload
                             
                             else:
@@ -354,7 +384,7 @@ def competitive_tender_model(s : api.requests.Session, tender_id : int):
                         else:
                             # we may want to accept here: buying back the shorts is disadvantageous because sellers have the upper hand
                             # but instant profit may outweigh the disadvantage of buying back the shorts
-                            decision = "REJECT THE COMPETITIVE SELL OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker) + "\nSELLERS HAVE THE UPPER HAND"
+                            decision = "REJECT THE COMPETITIVE SELL OFFER FOR " + str(quantity_offered) + " SHARES OF " + str(ticker) + "\nSPREAD TOO HIGH"
                             return "\n" + decision
 
                     else:
@@ -388,33 +418,57 @@ def main():
         
         s.headers.update(api.API_KEY)
         
-        tick = api.get(s, "case")["tick"]
+        status = api.get(s, "case")["status"]
         
-        old_tenders = api.get(s, "tenders")
+        while(status != "ACTIVE"):
+            status = api.get(s, "case")["status"]
+            api.sleep(api.SPEEDBUMP)
+
+        ALL_TENDER_IDS = []
+
+        tender_df = pd.DataFrame(columns = ["Tender Type", "Action", "Ticker", "Quantity", "Price", "Bid/Ask", "Spread", "Decision", "Reason"])
+
+        order_df = pd.DataFrame(columns = ["Ticker", "Action", "Quantity", "Price/MKT"])
 
         system("cls")
 
-        # handle the tenders that are active when this file is initially run
-        for tender in old_tenders:
-            print(tender["tender_id"])
-            if tender["is_fixed_bid"]:
-                print(private_tender_model(s, tender["tender_id"]))
-            else:
-                print(competitive_tender_model(s, tender["tender_id"]))
-
-        while 0 <= tick < 600:
-            tick = api.get(s, "case")["tick"]
+        while status == "ACTIVE":
+            status = api.get(s, "case")["status"]
             tenders = api.get(s, "tenders")
-            if tenders != old_tenders and len(tenders) > 0: # check for an update in the tenders
-                old_tenders = tenders
-                print("\n" + str(tenders[-1]["tender_id"])) # print the tender id
-                # decide which model to use based on the type of tender
-                if tenders[-1]["is_fixed_bid"]:
-                    print(private_tender_model(s, tenders[-1]["tender_id"])) # Not sure if this is the correct index, may have to sort the tenders by time
-                else:
-                    print(competitive_tender_model(s, tenders[-1]["tender_id"]))
+            tender_df.drop(tender_df.index, inplace = True)
+            order_df.drop(order_df.index, inplace = True)
+            for tender in tenders:
+                if tender["tender_id"] not in ALL_TENDER_IDS:
+                    ALL_TENDER_IDS.append(tender["tender_id"])
+                    if tender["is_fixed_bid"]:
+                        info = private_tender_model(s, tender["tender_id"])
+
+                        tender_df.loc[len(tender_df)] = info[0]
+
+                        tender_df.rename(index={0: tender["tender_id"]}, inplace = True)
+
+                        formatted_tender_df = tabulate(tender_df, headers = "keys", tablefmt = "fancy_grid")
+
+                        print(formatted_tender_df)
+
+                        if len(info) > 1:
+                            
+                            print(info[1])
+
+                            offload_info = info[1]
+
+                            for i in range(offload_info[2]):
+                                order_df.loc[len(order_df)] = (offload_info[0], offload_info[1], offload_info[3], offload_info[5])
+
+                            if offload_info[4] > 0:
+                                order_df.loc[len(order_df)] = (offload_info[0], offload_info[1], offload_info[4], offload_info[5])
+
+                            formatted_order_df = tabulate(order_df, headers = "keys", tablefmt = "fancy_grid")
+
+                            print(formatted_order_df)
 
             api.sleep(api.SPEEDBUMP)
+        
 
 if __name__ == '__main__':
     api.signal.signal(api.signal.SIGINT, api.signal_handler)
