@@ -1,9 +1,6 @@
 import signal
 import requests
-import json
 from time import sleep
-import sys
-
 
 # this class definition allows us to print error messages and stop the program when needed
 class ApiException(Exception):
