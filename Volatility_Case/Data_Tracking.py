@@ -292,7 +292,7 @@ def main():
 					plt.figure()
 					plt.xlabel('volatilities')
 					plt.ylabel('occurences')
-					vol_data.hist(bins=[15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30])
+					vol_data.hist(bins=[13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32])
 					plt.savefig('histograms/hist_vol.png')
 					with open('vol_data.csv', 'a', newline='') as file:
 						writer = csv.writer(file)
