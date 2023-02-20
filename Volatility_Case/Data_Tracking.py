@@ -6,6 +6,8 @@ import sys
 import optionprice
 from optionprice import Option
 import pandas as pd
+import matplotlib.pyplot as plt
+import os
 import re
 import math
 import py_vollib 
@@ -206,9 +208,14 @@ def Price_option(security : dict, stock_price : float, volatility : float):
 	p_hat = bs(flag, S, K, t, r, sigma)
 	return p_hat
 
+def remove_file(filename):
+	if os.path.exists('histograms/'+filename) is True:
+		os.remove('histograms/' + filename)
+
 def main():
 
-	volatilities = []
+	vols = []
+	vol_ranges = []
 	
 	with requests.Session() as s: # Create a Session object to manage connections and requests to the RIT client.
 
@@ -245,6 +252,7 @@ def main():
 
 		# Initialize the previous event type to None
 		prev_event_type = None
+		anns = 0
 
 		while(True):
 
@@ -252,27 +260,64 @@ def main():
 			current_tick,current_period = update_time(s)
 			print(current_tick)
 			#volatilities = []
-			
+			'''
+			1. print to a file, comma sperated list 
+			2. empricaly figure out the standard deviation and find a way to print / save it somewhere 
+			3. print the Max and Min of the volailities
+			4. print the average volatility as a number 
+			'''
 			# parse announcement
 			if current_tick in announcement_ticks or (current_tick == 0 and current_period == 2):
 				# Announcement event
 				if prev_event_type != "announcement":
 					# Only parse if not the same as previous event type
+					print("announcement")
+					anns += 1
 					last_news_id,volatility = parse_announcemnt(s)
-					volatilities.append(volatility)
+					vols.append(volatility)
 					prev_event_type = "announcement"
+					vol_data = pd.Series(vols)
+					filename = "hist_vol.png"
+					remove_file(filename)
+					plt.figure()
+					plt.xlabel('volatilities')
+					plt.ylabel('occurences')
+					vol_data.hist(bins=[15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30])
+					plt.savefig('histograms/hist_vol.png')
+
 
 			# parse estimate
 			elif current_tick in estimate_ticks and not (current_tick == 262 and current_period == 2):
 				# Estimate event
 				if prev_event_type != "estimate":
 					# Only parse if not the same as previous event type
+					print("estimate")
 					last_news_id,low,high = parse_esitmate(s)
 					prev_event_type = "estimate"
+					vol_range = high - low
+					vol_ranges.append(vol_range)
+					vol_range_data = pd.Series(vol_ranges)
+					filename = "hist_vol_ranges.png"
+					remove_file(filename)
+					plt.figure()
+					plt.xlabel('volatility ranges')
+					plt.ylabel('occurences')
+					vol_range_data.hist()
+					plt.savefig('histograms/hist_vol_ranges.png')
+
 			sleep(1)
+
+'''
+plt.legend()
+plt.title("Culmative returns vs. time")
+plt.ylabel('Culmative returns')
+plt.xlabel('Time (5-min intervals)')
+plt.figure(2)
+plt.hist(rand, bins = max(volatilities) - min(volatilities))
+plt.savefig("figure2.pdf")
+plt.show()
+'''
 	
-	vol_data = pd.Series(volatilities)
-	vol_data.hist()
 
 if __name__ == '__main__':
 	signal.signal(signal.SIGINT, signal_handler)
