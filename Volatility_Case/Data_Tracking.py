@@ -291,11 +291,11 @@ def main():
 					plt.ylabel('occurences')
 					vol_data.hist(bins=[15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30])
 					plt.savefig('histograms/hist_vol.png')
-					with open('vol_data.csv', 'w', newline='') as file:
+					with open('vol_data.csv', 'a', newline='') as file:
 						writer = csv.writer(file)
 						writer.writerow([volatility])
 						file.close()
-					with open('standard_deviations.csv','w',newline='') as file:
+					with open('standard_deviations.csv','a',newline='') as file:
 						writer = csv.writer(file)
 						writer.writerow([std_dev])
 
