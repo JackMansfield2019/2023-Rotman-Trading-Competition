@@ -1,0 +1,53 @@
+ALGO:
+
+NOTE: early exersize is not allow, but is selling/ reselling the option allowed?
+NOTE: if put/call parity is violated arbitrage oppertunity emerges 
+
+get trading limits
+
+get delta limits from news
+get penalty percentage from news
+
+parse inital volatility
+
+while(true):
+    if ( t % 75 == 0  or t == 1):
+
+        parse this weeks voltility estimate
+
+        update volatility forcast for 1 month
+        update volatility forcast for 2 month
+
+        iterate through all current positions 
+            check if they should still be held dependening on new volatility forcast I.E. check that they are still miss price according to new volatility forcast. 
+
+
+        iterate through all 1 month option contracts (10 of them) 
+
+
+        
+            use volatility forcast to price call option
+                check for vanilla arbitrage oppertunity
+                if vanilla arbitrage oppertinity add to list of arbitrage oppertinities
+            use volatility forcast to price put option 
+                check for vanilla arbitrage oppertunity
+                if vanilla arbitrage oppertinity add to list of arbitrage oppertinities
+            Check for put/call parity arbitrage oppertunities
+            add to list of arbitrage oppertunities
+        
+        iterate through all 1 month option contracts (10 of them) 
+            use volatility forcast to price call option
+                check for vanilla arbitrage oppertunity
+                if vanilla arbitrage oppertinity add to list of arbitrage oppertinities
+            use volatility forcast to price put option 
+                check for vanilla arbitrage oppertunity
+                if vanilla arbitrage oppertinity add to list of arbitrage oppertinities
+            Check for put/call parity arbitrage oppertunities
+            add to list of arbitrage oppertunities
+
+    elif( t % 38  == 0 ):
+
+
+
+GIVEN:
+

@@ -1,0 +1,66 @@
+Options arbitrage oppertinties:
+
+1. Exercise Arbitrage:
+    No option should sell for less than its exercise value
+    Call Option: Value of call > Value of Underlying Asset – Strike Price
+        immediate profit by buying the call and exercising right away
+    Put  Option: Value of put > Strike Price – Value of Underlying Asset 
+
+
+    Value of call > Value of Underlying Asset – Present value of Strike Price
+        if Value of call < then: Buy the call, sell short a share (or 100) of stock and recieve (Value of Underlying Asset - Value of call
+    Value of put > Present value of Strike Price – Value of Underlying Asset
+    create a portfolio of the underlying asset and the option and hold it through the option’s expiration
+
+
+
+Arbitrage Oppertunities:
+1. Exercise Arbitrage:
+    No option should sell for less than its exercise value
+    
+    if (Value of call < Value of Underlying Asset – Present value of Strike Price):
+        Buy the call
+        sell short a share (or 100) of stock
+        recieve (Value of Underlying Asset - Value of call)
+    if (Value of put < Present value of Strike Price – Value of Underlying Asset)
+        
+
+
+2. Replicating Portfolio
+3. Put-Call Parity
+
+    If C-P > S – Ke^-rt,
+        sell the call
+        buy the put
+        buy the stock.
+        You would earn more than the riskless rate on a riskless investment.
+    If C-P < S – Ke^-rt, 
+        buy the call
+        sell the put
+        sell short the stock
+        You would then invest the proceeds at the riskless rate and end up with a riskless profit at maturity.
+
+4. Mispricing across Strike Prices and Maturities
+    spread: combination of two or more options of the same type (call or put) on the same underlying asset
+    Options:
+        1. (bull and bear spreads): same maturity but different exercise prices
+
+            if (same maturity): A call with a lower strike price should never sell for less than a call with a higher strike price
+                buy the lower strike price call
+                sell the higher strike price call
+
+            if (same maturity): put with a lower strike price should never sell for more than a put with a higher strike price
+                buy the higher strike price put
+                sell the lower strike price put 
+
+        2. (calendar spreads): same strike price but different maturities
+
+            if (Same Strike): A call/put with a shorter time to expiration should never sell for more than a call/put with a longer time to expiration
+                buy the call/put with the shorter maturity
+                sell (put) the call with the longer maturity
+
+                When the first call expires, you will either exercise the second call (and have no cashflows) or sell it (and make a further profit).
+
+        3. (diagonal spreads): two options with different exercise prices and maturities
+        4. (butterfly spreads): more than two options
+5. Volatility Arbitrage
