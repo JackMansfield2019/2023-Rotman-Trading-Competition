@@ -200,6 +200,7 @@ def last_minute_action(session, action, tender_id):
     if potential_profit > value_of_offer:
         decision = api.post(session, "tenders", kwargs={id: tender_id})
         unload = "immediately" # have to make trade
+        unload = submit_order() # need to add parameters
         return
     else:
         decision = api.delete(session, "tenders", kwargs={id: tender_id})

@@ -14,6 +14,8 @@ import py_vollib
 from py_vollib.black_scholes  import black_scholes as bs
 from py_vollib.black_scholes.implied_volatility import implied_volatility as iv
 from py_vollib.black_scholes.greeks.analytical import delta as delta
+import csv
+import numpy as np
 
 # this class definition allows us to print error messages and stop the program when needed
 class ApiException(Exception):
@@ -261,9 +263,9 @@ def main():
 			print(current_tick)
 			#volatilities = []
 			'''
-			1. print to a file, comma sperated list 
-			2. empricaly figure out the standard deviation and find a way to print / save it somewhere 
-			3. print the Max and Min of the volailities
+			1. print to a file, comma sperated list -- done 
+			2. empricaly figure out the standard deviation and find a way to print / save it somewhere -- done
+			3. print the Max and Min of the volailities -- done
 			4. print the average volatility as a number 
 			'''
 			# parse announcement
@@ -275,6 +277,11 @@ def main():
 					anns += 1
 					last_news_id,volatility = parse_announcemnt(s)
 					vols.append(volatility)
+					std_dev = np.std(vols)
+					print(f'Max Volatility: {max(vols)}')
+					print(f"Min Volatility: {min(vols)}")
+					print(f"Avg Volatility: {sum(vols)/len(vols)}")
+					print(f'Standard Deviation: {std_dev}')
 					prev_event_type = "announcement"
 					vol_data = pd.Series(vols)
 					filename = "hist_vol.png"
@@ -284,6 +291,13 @@ def main():
 					plt.ylabel('occurences')
 					vol_data.hist(bins=[15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30])
 					plt.savefig('histograms/hist_vol.png')
+					with open('vol_data.csv', 'w', newline='') as file:
+						writer = csv.writer(file)
+						writer.writerow([volatility])
+						file.close()
+					with open('standard_deviations.csv','w',newline='') as file:
+						writer = csv.writer(file)
+						writer.writerow([std_dev])
 
 
 			# parse estimate
