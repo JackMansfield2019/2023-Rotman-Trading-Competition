@@ -261,7 +261,7 @@ def main():
 			# update time
 			current_tick,current_period = update_time(s)
 			print(current_tick)
-			vol_data = pd.read_csv('vol_data.csv')
+			vol_data = pd.read_csv('vol_data.csv',squeeze = True)
 			vols = vol_data.tolist()
 			
 			#volatilities = []
