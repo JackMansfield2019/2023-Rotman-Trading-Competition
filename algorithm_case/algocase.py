@@ -175,6 +175,142 @@ def re_order(session, number_of_orders, ids, volumes_filled, volumes, price, act
         if deleted.ok:
             session.post('http://localhost:9999/v1/orders', params = {'ticker':'BULL', 'type': 'LIMIT', 'quantity': volume, 'price': price, 'action': action})
 
+LAST_MINUTE_THRESHOLD = 60
+LIQUIDITY_RATIO_THRESHOLD
+VOLUME_RATIO_THRESHOLD
+
+def last_minute_action(session, action, tender_id):
+    potential_profit = 0
+    shares_accounte_for = 0
+    prices = 0
+    index = 0
+    if action == 'BUY':
+        prices = api.get(session, "securities/book", ticker = ticker, limit = 10000)['bids']
+    elif action == 'SELL':
+        prices = api.get(session, "securities/book", ticker = ticker, limit = 10000)['asks']
+
+    while shares_accounted_for < quantity_offered:
+        shares_accounted_for += prices[index]["quantity"] - prices[index]["quantity_filled"]
+        if shares_accounted_for > quantity_offered:
+            potential_profit += prices[index]["price"] * (quantity_offered - shares_accounted_for + prices[index]["quantity"] - prices[index]["quantity_filled"])
+        else:
+            potential_profit += prices[index]["price"] * (prices[index]["quantity"] - prices[index]["quantity_filled"])
+        index += 1
+    
+    if potential_profit > value_of_offer:
+        decision = api.post(session, "tenders", kwargs={id: tender_id})
+        unload = "immediately" # have to make trade
+        return
+    else:
+        decision = api.delete(session, "tenders", kwargs={id: tender_id})
+        return
+
+def not_last_minute_action(session):
+    liquidity_ratio = quantity_offered / api.get(session, "securities", ticker = ticker)[0]["total_volume"]
+    if liquidity < LIQUIDITY_RATIO_THRESHOLD:
+        bids_and_asks = api.get(session, "securities/book", ticker = ticker, limit = 10000)
+    
+    bid_volume = 0
+    for bid in bids_and_asks["bids"]:
+        bid_volume += bid["quantity"] - bid["quantity_filled"]
+    
+    ask_volume = 0
+    for ask in bids_and_asks["asks"]:
+        ask_volume += ask["quantity"] - ask["quantity_filled"]
+    
+    print(f"bid_volume: {bid_volume}")
+    print(f"ask_volume: {ask_volume}")
+
+    # sellers have the upper hand
+    if bid_volume / ask_volume > VOLUME_RATIO_THRESHOLD:
+        vwap = 0
+        for ask in bids_and_asks["asks"]:
+            vwap += ask["price"] * (ask["quantity"] - ask["quantity_filled"])
+        vwap /= ask_volume
+        sell_price = ((vwap + bids_and_asks["asks"][0]["price"]) / 2 + bids_and_asks["asks"][0]["price"]) / 2
+        if sell_price > price_offered:
+            decision = "accept"
+            unload = "make" 
+        else:
+            decision = "reject"
+    else:
+        decision = "reject"
+
+
+def tender_model(session, tender_id):
+    tender : dict = {}
+
+    for t in api.get(session, "tenders"):
+        if t["tender_id"] == tender_id:
+            tender = t
+            break
+    
+    if tender = {}:
+        return False
+    
+    tick = int(tender["tick"])
+    ticker = tender["ticker"]
+    price_offered = float(tender["price"])
+    quantity_offered = int(tender["quantity"])
+    action = tender["action"]
+    value_of_offer = price_offered * quantity_offered
+
+    net_positions = api.get(session, "limits")[0]['net']
+    gross_positions = api.get(session, "limits")[0]['gross']
+
+    if action == "BUY":
+        if net_positions + quantity_offered < api.get(session, "limits")[0]['net_limit'] and gross_positions + quantity_offered < api.get(session, "limits")[0]['gross_limit']:
+            if 600 - tick < LAST_MINUTE_THRESHOLD:
+                last_minute_action(session, "BUY", tender_id)
+            else:
+                not_last_minute_action(session, "BUY", tender_id)
+        else:
+            decision = "reject"
+    elif action == "SELL":
+        if gross_positions + quantity_filled < api.get(session, "limits")[0]['gross_limit']:
+            current_position = api.get(session, "securities", ticker = ticker)[0]["position"]
+            shares_to_be_shorted = 0
+
+            if 0 <= current_position < quantity_offered:
+                shares_to_be_shorted = quantity_offered - current_position
+            elif current_position < 0:
+                shares_to_be_shorted = quantity_offered
+            
+            shares_to_sell_instantly = quantity_offered - shares_to_be_shorted
+            value_of_shorted = shares_to_be_shorted * price_offered
+            instant_profit_from_sell = shares_to_sell_instantly * (price_offered - api.get(session, "securities", ticker = ticker)[0]["vwap"])
+            potential_profit = 0
+
+            if shares_to_be_shorted > 0:
+                if 600 - tick < LAST_MINUTE_THRESHOLD:
+                    asks = api.get(session, "securities/book", ticker = ticker, limit = 10000)['asks']
+                    shares_accounted_for = 0
+                    ask_index = 0
+
+                    while shares_accounted_for < shares_to_be_shorted:
+                        shares_accounted_for += asks[ask_index]["quantity"] - asks[ask_index]["quantity_filled"]
+                        if shares_accoutned_for > quantity_offered:
+                            potential_profit += asks[ask_index]["price"] * (quantity_offered - shares_accounted_for + asks[ask_index]["quantity"] - asks[ask_index]["quantity_filled"])
+                        else:
+                            potential_profit += asks[ask_index]["price"] * (asks[ask_index]["quantity"] - asks[ask_index]["quantity_filled"])
+                        ask_index += 1
+                    potential_profit = value_of_shorted - potential_profit
+                    if potential_profit + instant_profit_from_sell > 0:
+                        decision = "accept"
+                        unload = "yes"
+                        return
+                    else:
+                        decision = "reject"
+                        return     
+                else:
+                    liquidity_ratio = shares_to_be_shorted / api.get(session, "securities", ticker = ticker)[0]["total_volume"]
+                    if liquidity_ratio < LIQUIDITY_RATIO_THRESHOLD:
+                        bids_and_asks
+
+    
+
+
+
 def main():
     # instantiate variables about all the open buy orders
     buy_ids = []                # order ids

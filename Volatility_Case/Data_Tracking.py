@@ -5,6 +5,7 @@ from time import sleep
 import sys
 import optionprice
 from optionprice import Option
+import pandas as pd
 import re
 import math
 import py_vollib 
@@ -206,6 +207,8 @@ def Price_option(security : dict, stock_price : float, volatility : float):
 	return p_hat
 
 def main():
+
+	volatilities = []
 	
 	with requests.Session() as s: # Create a Session object to manage connections and requests to the RIT client.
 
@@ -248,16 +251,18 @@ def main():
 			# update time
 			current_tick,current_period = update_time(s)
 			print(current_tick)
+			#volatilities = []
 			
-			# parse news
+			# parse announcement
 			if current_tick in announcement_ticks or (current_tick == 0 and current_period == 2):
 				# Announcement event
 				if prev_event_type != "announcement":
 					# Only parse if not the same as previous event type
 					last_news_id,volatility = parse_announcemnt(s)
+					volatilities.append(volatility)
 					prev_event_type = "announcement"
 
-
+			# parse estimate
 			elif current_tick in estimate_ticks and not (current_tick == 262 and current_period == 2):
 				# Estimate event
 				if prev_event_type != "estimate":
@@ -265,6 +270,9 @@ def main():
 					last_news_id,low,high = parse_esitmate(s)
 					prev_event_type = "estimate"
 			sleep(1)
+	
+	vol_data = pd.Series(volatilities)
+	vol_data.hist()
 
 if __name__ == '__main__':
 	signal.signal(signal.SIGINT, signal_handler)
