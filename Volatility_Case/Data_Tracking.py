@@ -266,7 +266,7 @@ def main():
 			1. print to a file, comma sperated list -- done 
 			2. empricaly figure out the standard deviation and find a way to print / save it somewhere -- done
 			3. print the Max and Min of the volailities -- done
-			4. print the average volatility as a number 
+			4. print the average volatility as a number -- done
 			'''
 			# parse announcement
 			if current_tick in announcement_ticks or (current_tick == 0 and current_period == 2):
