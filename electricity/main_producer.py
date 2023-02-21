@@ -6,8 +6,6 @@ import sys
 import re
 import math
 
-
-
 # this class definition allows us to print error messages and stop the program when needed
 class ApiException(Exception):
 	pass
@@ -69,65 +67,6 @@ def api_get(session : requests.Session, endpoint: str, **kwargs : dict) -> dict:
 		print('API GET FAILED')
 		raise ApiException(payload["code"] + ": " + payload["message"])
 
-	return payload
-
-def api_post(session : requests.Session, endpoint: str, **kwargs : dict) -> dict:
-	'''
-	Makes a custom POST request to a specified endpoint in the RIT API
-
-		Parameters:
-			Session (requests.Session): Current Session Object
-			endpoint (String): name of the end point ex "case" or "assets/history" or "orders/{insert your id here}"
-			kwargs (Dict): Dictionary that maping each keyword to the value that we pass alongside it
-		
-		Returns:
-			Payload (Dict): Dictonary contining the JSON returned from the endpoint
-	
-		Example Usage:
-			api_post( s, "orders", ticker = "RTM", type = "LIMIT", quantity = "100", action = "SELL")
-	'''
-	URL : str  = BASE_URL + endpoint
-
-	resp = session.post(URL, params=kwargs)
-	payload : dict = resp.json()
-	
-	if resp.ok:
-		print('API POST SUCCESSFUL')
-	else:
-		print('API POST FAILED')
-		if(resp.status_code == 429):
-			print(payload["code"] + ": " + payload["message"])
-			return -1
-		else:
-			ApiException(payload["code"] + ": " + payload["message"])
-
-	return payload
-
-def api_delete(session : requests.Session, endpoint: str, **kwargs : dict) -> dict:
-	'''
-	Makes a custom DELETE request to a specified endpoint in the RIT API
-
-		Parameters:
-			Session (requests.Session): Current Session Object
-			endpoint (String): name of the end point ex "case" or "assets/history" or "orders/{insert your id here}"
-			kwargs (Dict): Dictionary that mapping each keyword to the value that we pass alongside it
-		
-		Returns:
-			Payload (Dict): Dictionary continuing the JSON returned from the endpoint
-	
-		Example Usage:
-			api_delete( s, "/tenders/{id}")
-	'''
-	URL : str  = BASE_URL + endpoint
-
-	resp = session.post(URL, params=kwargs)
-	payload : dict = resp.json()
-
-	if resp.ok:
-		print('API DELETE SUCCESSFUL')
-	else:
-		print('API DELETE FAILED')
-		raise ApiException(payload["code"] + ": " + payload["message"])
 	return payload
 	
 # OTHER FUNCITONS
