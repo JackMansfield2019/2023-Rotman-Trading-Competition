@@ -59,25 +59,6 @@ def ticker_ask(sessions, ticker):
         return book['asks'][0]['price']
     raise ApiException('Authorization error Please Check API Key')
 
-def unwinding_algo_simulation(number_of_shares, time_to_sell):
-    k = number_of_shares
-    T = time_to_sell
-    pass
-
-def almgren_chriss_optimal_execution(number_of_shares, time_to_sell_by, intervals):
-    X = number_of_shares
-    T = time_to_sell_by
-    N = intervals
-    t_ = T/N 
-    k = [i for i in range(0,N)]
-    t = [k[i]*t_ for i in range(0,N)]
-    # number of unites to hold at time t_k; x_0 = X, x_N = 0
-    x = np.zeros(N)
-    x[0] = X
-    x[-1] = 0
-    #x = [X, 0] # number of unites to hold at time t_k; x_0 = X, x_N = 0
-    S = None # security price
-
 # returns info about all open sell orders
 def open_sells(session):
     resp = session.get('http://localhost:9999/v1/orders?status=OPEN')
@@ -134,7 +115,7 @@ def submit_order(session, ticker, type_, quantity, action, price):
         if resp.ok:
             mkt_order = resp.json()
             id = mkt_order['order_id']
-            print('The market ' + action + ' order was submitted and has ID: ' + str(id))
+            print(f'The market {action} order was submitted and has ID: {id}')
             return id
         else:
             print('The order was not successfully submitted!')
@@ -145,7 +126,7 @@ def submit_order(session, ticker, type_, quantity, action, price):
         if resp.ok:
             mkt_order = resp.json()
             id = mkt_order['order_id']
-            print('The limit ' + action + ' order was submitted and has ID: ' + str(id))
+            print(f'The limit {action} order was submitted and has ID: {id}')
             return id
         else:
             print('The order was not successfully submitted!')
@@ -176,19 +157,21 @@ def re_order(session, number_of_orders, ids, volumes_filled, volumes, price, act
             session.post('http://localhost:9999/v1/orders', params = {'ticker':'BULL', 'type': 'LIMIT', 'quantity': volume, 'price': price, 'action': action})
 
 LAST_MINUTE_THRESHOLD = 60
-LIQUIDITY_RATIO_THRESHOLD
-VOLUME_RATIO_THRESHOLD
+LIQUIDITY_RATIO_THRESHOLD = 100
+VOLUME_RATIO_THRESHOLD = 1.0
+MAX_SPREAD = 0.2
+TICKS_PER_PERIOD = 300 # need to change
+ORDER_BOOK_SIZE = 10000
 
-def last_minute_action(session, action, tender_id):
+def last_minute_action(session, action, tender_id, ticker):
     potential_profit = 0
     shares_accounte_for = 0
     prices = 0
     index = 0
     if action == 'BUY':
-        prices = api.get(session, "securities/book", ticker = ticker, limit = 10000)['bids']
+        prices = api.get(session, "securities/book", ticker = ticker, limit = ORDER_BOOK_SIZE)['bids']
     elif action == 'SELL':
-        prices = api.get(session, "securities/book", ticker = ticker, limit = 10000)['asks']
-
+        prices = api.get(session, "securities/book", ticker = ticker, limit = ORDER_BOOK_SIZE)['asks']
     while shares_accounted_for < quantity_offered:
         shares_accounted_for += prices[index]["quantity"] - prices[index]["quantity_filled"]
         if shares_accounted_for > quantity_offered:
@@ -196,49 +179,41 @@ def last_minute_action(session, action, tender_id):
         else:
             potential_profit += prices[index]["price"] * (prices[index]["quantity"] - prices[index]["quantity_filled"])
         index += 1
-    
     if potential_profit > value_of_offer:
         decision = api.post(session, "tenders", kwargs={id: tender_id})
-        unload = "immediately" # have to make trade
-        unload = submit_order() # need to add parameters
-        return
+        order_id = submit_order(session, ticker, 'MARKET', 10000, 'SELL', None)
+        return "acepted", order_id, tender_id
     else:
         decision = api.delete(session, "tenders", kwargs={id: tender_id})
-        return
+        return "rejected", None, None
 
-def not_last_minute_action(session):
-    liquidity_ratio = quantity_offered / api.get(session, "securities", ticker = ticker)[0]["total_volume"]
-    if liquidity < LIQUIDITY_RATIO_THRESHOLD:
-        bids_and_asks = api.get(session, "securities/book", ticker = ticker, limit = 10000)
-    
-    bid_volume = 0
-    for bid in bids_and_asks["bids"]:
-        bid_volume += bid["quantity"] - bid["quantity_filled"]
-    
-    ask_volume = 0
-    for ask in bids_and_asks["asks"]:
-        ask_volume += ask["quantity"] - ask["quantity_filled"]
-    
-    print(f"bid_volume: {bid_volume}")
-    print(f"ask_volume: {ask_volume}")
-
-    # sellers have the upper hand
-    if bid_volume / ask_volume > VOLUME_RATIO_THRESHOLD:
-        vwap = 0
-        for ask in bids_and_asks["asks"]:
-            vwap += ask["price"] * (ask["quantity"] - ask["quantity_filled"])
-        vwap /= ask_volume
-        sell_price = ((vwap + bids_and_asks["asks"][0]["price"]) / 2 + bids_and_asks["asks"][0]["price"]) / 2
+def not_last_minute_action(session, action, tender_id, ticker):
+    spread = 100*(api.get(s,"securities",ticker=ticker)[0]["ask"] / api.get(s,"securities",ticker=ticker)[0]["bid"]-1)
+    if spread < MAX_SPREAD:
+        bids = api.get(s,"securities/book",ticker=ticker,limit=ORDER_BOOK_SIZE)['bids']
+        shares_accounted_for = 0
+        bid_index = 0
+        while shares_accounted_for < quantity_offered:
+            shares_accounted_for += bids[bid_index]["quantity"] - bids[bid_index]["quantity_filled"]
+            bid_index += 1
+        sell_price = bids[bid_index - 1]["price"]
         if sell_price > price_offered:
-            decision = "accept"
-            unload = "make" 
+            decision = api.post(session,"tenders",kwargs={"id":tender_id})
+            return "accepted", tender_id
         else:
-            decision = "reject"
+            decision = api.delete(session,"tenders",kwargs={"id":tender_id})
+            return "rejected", False
     else:
-        decision = "reject"
+        decision = api.delete(session,"tenders",kwargs={"id":tender_id})
+        return "rejected", False
 
+def unload(session, tender_id, ticker):
+    spread = 100*(api.get(s,"securities",ticker=ticker)[0]["ask"]/api.get(s,"securities",ticker=ticker)[0]["bid"]-1)
+    if spread < MAX_SPREAD:
+        order_id = submit_order(session, ticker, 'MARKET', 10000, 'SELL', None) 
+        return True
 
-def tender_model(session, tender_id):
+def tender_model(session, tender_id, ticker):
     tender : dict = {}
 
     for t in api.get(session, "tenders"):
@@ -261,12 +236,21 @@ def tender_model(session, tender_id):
 
     if action == "BUY":
         if net_positions + quantity_offered < api.get(session, "limits")[0]['net_limit'] and gross_positions + quantity_offered < api.get(session, "limits")[0]['gross_limit']:
-            if 600 - tick < LAST_MINUTE_THRESHOLD:
-                last_minute_action(session, "BUY", tender_id)
+            if TICKS_PER_PERIOD - tick < LAST_MINUTE_THRESHOLD:
+                decision, order_id, tender_id = last_minute_action(session, "BUY", tender_id, ticker)
+                return "accepted", None
             else:
-                not_last_minute_action(session, "BUY", tender_id)
+                decision, tender_id = not_last_minute_action(session, "BUY", tender_id, ticker)
+                return "accepted", tender_id
         else:
-            decision = "reject"
+            decision = api.delete(session,"tenders",kwargs={"id":tender_id})
+            return "rejected", False
+    else:
+        action == "SELL":
+        decision = api.post(session,"tenders",kwargs={"id":tender_id})
+        return "accepted", False
+    
+    """
     elif action == "SELL":
         if gross_positions + quantity_filled < api.get(session, "limits")[0]['gross_limit']:
             current_position = api.get(session, "securities", ticker = ticker)[0]["position"]
@@ -307,10 +291,7 @@ def tender_model(session, tender_id):
                     liquidity_ratio = shares_to_be_shorted / api.get(session, "securities", ticker = ticker)[0]["total_volume"]
                     if liquidity_ratio < LIQUIDITY_RATIO_THRESHOLD:
                         bids_and_asks
-
-    
-
-
+    """
 
 def main():
     # instantiate variables about all the open buy orders
@@ -336,35 +317,24 @@ def main():
         s.headers.update(API_KEY)
         tick = get_tick(s)
 
+        held_tenders_list = []
+
         # while the time is between 5 and 295, do the following
-        while tick > 5 and tick < 295 and not shutdown:
+        while tick > 0 and tick < 295 and not shutdown:
             # update information about the case
             volume_filled_sells, open_sells_volumne, sell_ids, sell_prices, sell_volumes = open_sells(s)
             volume_filled_buys, open_buys_volume, buy_ids, buy_prices, buy_volumes = open_buys(s)
             bid_price, ask_price = ticker_bid_ask(s, 'BULL') # NEED TO CHANGE TICKER
-            """
-            # checks for tender offer
-            endpoint = "tenders"
-            args = None
-            tender = api_get(session, endpoint, args)
-            if tender:
-                endpoint = "orders?"
-                args = "status=OPEN"
-                open_orders = api_get(session, endpoint, args)
-                long_pos = sum(open_orders["action"] == "BUY")
-                short_pos = sum(open_orders["action"] == "SELL")
-                if sum(long_pos + short_pos) <= gross_limit and sum(long_pos - short_pos) <= net_limit:
-                    profit_np = unwinding_algo_simulation()
-                    profit_cp = unwinding_algo_simulation()
-                    if profit_np > profit_cp:
-                        endpoint = localhost + "tenders"
-                        args = tender["tender_id"]
-                        tender_accept_res = api_post(session, endpoint, args)
-                    else:
-                        endpoint = localhost + "tenders"
-                        args = tender["tender_id"]
-                        tender_decline_res = api_delete(session, endpoint, args)
-            """
+
+            tenders = api.get(s,"tenders")
+            for tender in tenders:
+                if tender["tender_id"] not in held_tenders_list:
+                    decision, tender_id = tender_model(s,tender["tender_id"], "RITC")
+                    if decision == "accepted" and not tender_id is None:
+                        held_tenders_list.append(tender_id)
+            for tender in held_tenders_list:
+                resp = unload(session, tender["tender_id"], "RITC")
+
             # check if you have 0 open orders
             if open_sells_volume == 0 and open_buys_volume == 0:
                 # both sides are filled now
