@@ -117,6 +117,7 @@ def main():
 		#global variables for each day
 		ELEC = 0
 		day = 1
+		old_day = -1
 		AT_Range = []
 
 		
@@ -128,11 +129,11 @@ def main():
 			#grabs most recent news release
 			news = api_get(s, "news", since = 0)
 			last_news_id = int(news[0]["news_id"])
-			
+			day = int(news[0]["period"])
 			
 			#updates the first Averate temperature range
-			if(current_tick >= 1 and AT_Range ==[]):
-				for id in range(last_news_id, 0):
+			if(current_tick >= 1 and AT_Range ==[] and day!=old_day):
+				for id in range( 0, last_news_id):
 					if "TEMPERATURE" in news[id]["headline"] and int(news[id]["tick"]) < 8:
 						temp_solar = news[id]["body"].split()
 						for word in temp_solar:
@@ -144,8 +145,8 @@ def main():
 									break
 						break
 
-			if(current_tick >= 89 and AT_Range !=[]):	
-				for id in range(last_news_id, 0):
+			if(current_tick >= 90 and AT_Range !=[] and not Second_AT_Check):	
+				for id in range(0, last_news_id):
 					if "TEMPERATURE" in news[id]["headline"] and int(news[id]["tick"]) < 100:
 						temp_solar = news[id]["body"].split()
 						for word in temp_solar:
@@ -164,14 +165,19 @@ def main():
 						
 			
 			if(current_tick >= 148 and Second_AT_Check):
-				if "BULLETIN" in news[id]["headline"] and int(news[id]["tick"]) < 153:
-							Temp = news[id-1]["boody"].split()
-							for word in Temp:
-								if word.isnumeric():
-									AT = int(word)
-									break
-				print("Exact ELEC-DayX needed from consumers: ", (200-15*AT + 0.8*AT*AT - 0.01*AT*AT*AT))
-				config_electricity.ELEC +=200-15*AT + 0.8*AT*AT - 0.01*AT*AT*AT
+				if "TEMPERATURE" in news[id]["headline"] and int(news[id]["tick"]) < 153:
+					Temp = news[id-1]["body"].split()
+					for word in Temp:
+						if word.isnumeric():
+							AT = int(word)
+							Second_AT_Check = False
+							AT_Range = []
+							old_day = day
+							print("Exact ELEC-DayX needed from consumers: ", (200-15*AT + 0.8*AT*AT - 0.01*AT*AT*AT))
+							config_electricity.ELEC +=200-15*AT + 0.8*AT*AT - 0.01*AT*AT*AT
+							break
+				
+									
 			# update time
 			current_tick,current_period = update_time(s)
 			print(current_tick)
