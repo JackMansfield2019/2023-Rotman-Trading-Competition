@@ -143,9 +143,6 @@ def main():
 									print("First estimated ELEC-DayX needed from consumers: ", (200-15*AT + 0.8*AT*AT - 0.01*AT*AT*AT))
 									break
 						break
-					
-				
-				
 
 			if(current_tick >= 89 and AT_Range !=[]):	
 				for id in range(last_news_id, 0):
