@@ -142,6 +142,7 @@ def main():
 								if len(AT_Range) > 1:
 									AT = (AT_Range[0]+AT_Range[1])/2
 									print("First estimated ELEC-DayX needed from consumers: ", (200-15*AT + 0.8*AT*AT - 0.01*AT*AT*AT))
+									print("First forecast of maximum futures you can hold: ", (200-15*AT_Range[1] + 0.8*AT_Range[1]*AT_Range[1] - 0.01*AT_Range[1]*AT_Range[1]*AT_Range[1])/5)
 									break
 						break
 
@@ -156,6 +157,7 @@ def main():
 										AT_Range[1] = int(word)
 										AT = (AT_Range[0]+AT_Range[1])/2
 										print("Second estimated ELEC-DayX needed from consumers: ", ((200-15*AT + 0.8*AT*AT - 0.01*AT*AT*AT)))
+										print("Second forecast of maximum futures you can hold: ", (200-15*AT_Range[1] + 0.8*AT_Range[1]*AT_Range[1] - 0.01*AT_Range[1]*AT_Range[1]*AT_Range[1])/5)
 									break
 								else:
 									if AT_Range[0] < int(word):
@@ -173,7 +175,7 @@ def main():
 							Second_AT_Check = False
 							AT_Range = []
 							old_day = day
-							print("Exact ELEC-DayX needed from consumers: ", (200-15*AT + 0.8*AT*AT - 0.01*AT*AT*AT))
+							print("Exact ELEC-DayX needed from consumers and maximum futures you can hold: ", (200-15*AT + 0.8*AT*AT - 0.01*AT*AT*AT))
 							config_electricity.ELEC +=200-15*AT + 0.8*AT*AT - 0.01*AT*AT*AT
 							break
 				
