@@ -7,7 +7,7 @@ from tabulate import tabulate
 LAST_MINUTE_THRESHOLD = 60
 LIQUIDITY_RATIO_THRESHOLD = 100
 VOLUME_RATIO_THRESHOLD = 1.0
-MAX_SPREAD = .2
+MAX_SPREAD = .15
 TICKS_PER_PERIOD = 600
 ORDER_BOOK_SIZE = 10000
 
@@ -71,27 +71,49 @@ def private_tender_model(s : api.requests.Session, tender_id : int):
                 #for a in bids_and_asks["asks"]:
                 #    ask_volume += a["quantity"] - a["quantity_filled"]
 
+                bids = api.get(s, "securities/book", ticker = ticker, limit = ORDER_BOOK_SIZE)['bids']
+                shares_accounted_for : int = 0
+                bid_index : int = 0
+
+                while shares_accounted_for < quantity_offered:
+                    shares_accounted_for += bids[bid_index]["quantity"] - bids[bid_index]["quantity_filled"]
+                    bid_index += 1
+                
+                sell_price = bids[bid_index - 1]["price"]
 
                 spread = 100*(api.get(s, "securities", ticker = ticker)[0]["ask"]/api.get(s, "securities", ticker = ticker)[0]["bid"] - 1)
 
+                # print("Spread: " + str(spread))
+
                 if spread < MAX_SPREAD: # less volatile
-
-                    bids = api.get(s, "securities/book", ticker = ticker, limit = ORDER_BOOK_SIZE)['bids']
-                    shares_accounted_for : int = 0
-                    bid_index : int = 0
-
-                    while shares_accounted_for < quantity_offered:
-                        shares_accounted_for += bids[bid_index]["quantity"] - bids[bid_index]["quantity_filled"]
-                        bid_index += 1
-                    
-                    sell_price = bids[bid_index - 1]["price"]
-
                     if sell_price > price_offered:
                         return [("Private", action, ticker, quantity_offered, price_offered, "\u001b[32mACCEPT\u001b[37m"), (ticker, "BUY" if action == "SELL" else "SELL", int(quantity_offered / api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]), api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], quantity_offered % api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], round(sell_price, 2))]
                     else:
+                        # print("Sell price: " + str(sell_price) + " Offer price: " + str(price_offered))
                         return [("Private", action, ticker, quantity_offered, price_offered, "\u001b[31mREJECT\u001b[37m")]
-                else:
-                    return [("Private", action, ticker, quantity_offered, price_offered, "\u001b[31mREJECT\u001b[37m")]
+                else: # volatile, but is it trending up?
+                    price_data = api.get(s, "securities/history", ticker = ticker, limit = 20)
+                    last_5_ticks = []
+                    last_20_ticks = []
+                    for i in range(0, 5):
+                        last_5_ticks.append(price_data[i]["close"])
+                    for i in range(0, 20):
+                        last_20_ticks.append(price_data[i]["close"])
+
+                    sma5 = sum(last_5_ticks) / len(last_5_ticks) if len(last_5_ticks) > 0 else 0
+                    sma20 = sum(last_20_ticks) / len(last_20_ticks) if len(last_20_ticks) > 0 else 0
+
+                    # print("sma5: " + str(sma5))
+                    # print("sma20: " + str(sma20))
+
+                    if sma20 != 0 and sma5 != 0 and sma5 > sma20:
+                        if sell_price > price_offered:
+                            return [("Private", action, ticker, quantity_offered, price_offered, "\u001b[32mACCEPT\u001b[37m"), (ticker, "BUY" if action == "SELL" else "SELL", int(quantity_offered / api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]), api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], quantity_offered % api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], round(sell_price, 2))]
+                        else:
+                            # print("Sell price: " + str(sell_price) + " Offer price: " + str(price_offered))
+                            return [("Private", action, ticker, quantity_offered, price_offered, "\u001b[31mREJECT\u001b[37m")]
+                    else:
+                        return [("Private", action, ticker, quantity_offered, price_offered, "\u001b[31mREJECT\u001b[37m")]
         else:
             return [("Private", action, ticker, quantity_offered, price_offered, "\u001b[31mREJECT\u001b[37m")]
     
@@ -147,26 +169,51 @@ def private_tender_model(s : api.requests.Session, tender_id : int):
 
                     spread = 100*(api.get(s, "securities", ticker = ticker)[0]["ask"]/api.get(s, "securities", ticker = ticker)[0]["bid"] - 1)
 
+                    # print("Spread: " + str(spread))
+
+                    asks = api.get(s, "securities/book", ticker = ticker, limit = ORDER_BOOK_SIZE)['asks']
+                    shares_accounted_for : int = 0
+                    ask_index : int = 0
+
+                    while shares_accounted_for < shares_to_be_shorted:
+                        shares_accounted_for += asks[ask_index]["quantity"] - asks[ask_index]["quantity_filled"]
+                        ask_index += 1
+                    
+                    buy_price = asks[ask_index - 1]["price"]
+
+                    potential_profit = value_of_shorted - shares_to_be_shorted * buy_price
+
                     if spread < MAX_SPREAD or shares_to_sell_instantly >= shares_to_be_shorted: # less volatile or there is a decent amount of instant profit
-
-                        asks = api.get(s, "securities/book", ticker = ticker, limit = ORDER_BOOK_SIZE)['asks']
-                        shares_accounted_for : int = 0
-                        ask_index : int = 0
-
-                        while shares_accounted_for < shares_to_be_shorted:
-                            shares_accounted_for += asks[ask_index]["quantity"] - asks[ask_index]["quantity_filled"]
-                            ask_index += 1
-                        
-                        buy_price = asks[ask_index - 1]["price"]
-
-                        potential_profit = value_of_shorted - shares_to_be_shorted * buy_price
 
                         if instant_profit_from_sell + potential_profit > 0:
                             return [("Private", action, ticker, quantity_offered, price_offered, "\u001b[32mACCEPT\u001b[37m"), (ticker, "BUY" if action == "SELL" else "SELL", int(shares_to_be_shorted / api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]), api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], shares_to_be_shorted % api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], round(buy_price, 2))]
                         else:
+                            # print("instant profit: " + str(instant_profit_from_sell), "potential profit: " + str(potential_profit))
                             return [("Private", action, ticker, quantity_offered, price_offered, "\u001b[31mREJECT\u001b[37m")]
                     else:
-                        return [("Private", action, ticker, quantity_offered, price_offered, "\u001b[31mREJECT\u001b[37m")]
+
+                        price_data = api.get(s, "securities/history", ticker = ticker, limit = 20)
+                        last_5_ticks = []
+                        last_20_ticks = []
+                        for i in range(0, 5):
+                            last_5_ticks.append(price_data[i]["close"])
+                        for i in range(0, 20):
+                            last_20_ticks.append(price_data[i]["close"])
+
+                        sma5 = sum(last_5_ticks) / len(last_5_ticks) if len(last_5_ticks) > 0 else 0
+                        sma20 = sum(last_20_ticks) / len(last_20_ticks) if len(last_20_ticks) > 0 else 0
+
+                        # print("sma5: " + str(sma5))
+                        # print("sma20: " + str(sma20))
+
+                        if sma20 != 0 and sma5 != 0 and sma5 < sma20:
+                            if instant_profit_from_sell + potential_profit > 0:
+                                return [("Private", action, ticker, quantity_offered, price_offered, "\u001b[32mACCEPT\u001b[37m"), (ticker, "BUY" if action == "SELL" else "SELL", int(shares_to_be_shorted / api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]), api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], shares_to_be_shorted % api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], round(buy_price, 2))]
+                            else:
+                                # print("instant profit: " + str(instant_profit_from_sell), "potential profit: " + str(potential_profit))
+                                return [("Private", action, ticker, quantity_offered, price_offered, "\u001b[31mREJECT\u001b[37m")]
+                        else:
+                            return [("Private", action, ticker, quantity_offered, price_offered, "\u001b[31mREJECT\u001b[37m")]
             elif instant_profit_from_sell > 0:
                 return [("Private", action, ticker, quantity_offered, price_offered, "\u001b[32mACCEPT\u001b[37m")]
             else:
@@ -235,7 +282,21 @@ def competitive_tender_model(s : api.requests.Session, tender_id : int):
                 #for a in bids_and_asks["asks"]:
                 #    ask_volume += a["quantity"] - a["quantity_filled"]
 
+                bids = api.get(s, "securities/book", ticker = ticker, limit = ORDER_BOOK_SIZE)['bids']
+                shares_accounted_for : int = 0
+                bid_index : int = 0
+
+                while shares_accounted_for < quantity_offered:
+                    shares_accounted_for += bids[bid_index]["quantity"] - bids[bid_index]["quantity_filled"]
+                    bid_index += 1
+
+                buy_offer_price : float = bids[bid_index - 1]["price"]
+
+                sell_price :float = api.get(s, "securities", ticker = ticker)[0]["bid"]
+
                 spread = 100*(api.get(s, "securities", ticker = ticker)[0]["ask"]/api.get(s, "securities", ticker = ticker)[0]["bid"] - 1)
+
+                # print("Spread: " + str(spread))
 
                 if spread < MAX_SPREAD: # less volatile
                     """if get_type_of_tender(tender["caption"]) == "Competitive":
@@ -260,21 +321,27 @@ def competitive_tender_model(s : api.requests.Session, tender_id : int):
 
                         return [(get_type_of_tender(tender["caption"]), action, ticker, quantity_offered, round(vwap, 2), "\u001b[32mACCEPT\u001b[37m"), (ticker, "BUY" if action == "SELL" else "SELL", int(quantity_offered / api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]), api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], quantity_offered % api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], sell_price)]
                     else:"""
-                    bids = api.get(s, "securities/book", ticker = ticker, limit = ORDER_BOOK_SIZE)['bids']
-                    shares_accounted_for : int = 0
-                    bid_index : int = 0
-
-                    while shares_accounted_for < quantity_offered:
-                        shares_accounted_for += bids[bid_index]["quantity"] - bids[bid_index]["quantity_filled"]
-                        bid_index += 1
-
-                    buy_offer_price : float = bids[bid_index - 1]["price"]
-
-                    sell_price :float = api.get(s, "securities", ticker = ticker)[0]["bid"]
 
                     return [(get_type_of_tender(tender["caption"]), action, ticker, quantity_offered, buy_offer_price, "\u001b[32mACCEPT\u001b[37m"), (ticker, "BUY" if action == "SELL" else "SELL", int(quantity_offered / api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]), api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], quantity_offered % api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], sell_price)]
                 else:
-                    return [(get_type_of_tender(tender["caption"]), action, ticker, quantity_offered, "N/A", "\u001b[31mREJECT\u001b[37m")]
+                    price_data = api.get(s, "securities/history", ticker = ticker, limit = 20)
+                    last_5_ticks = []
+                    last_20_ticks = []
+                    for i in range(0, 5):
+                        last_5_ticks.append(price_data[i]["close"])
+                    for i in range(0, 20):
+                        last_20_ticks.append(price_data[i]["close"])
+
+                    sma5 = sum(last_5_ticks) / len(last_5_ticks) if len(last_5_ticks) > 0 else 0
+                    sma20 = sum(last_20_ticks) / len(last_20_ticks) if len(last_20_ticks) > 0 else 0
+
+                    # print("sma5: " + str(sma5))
+                    # print("sma20: " + str(sma20))
+
+                    if sma5 != 0 and sma20 != 0 and sma5 > sma20:
+                        return [(get_type_of_tender(tender["caption"]), action, ticker, quantity_offered, round(buy_offer_price, 2), "\u001b[32mACCEPT\u001b[37m"), (ticker, "BUY" if action == "SELL" else "SELL", int(quantity_offered / api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]), api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], quantity_offered % api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], sell_price)]
+                    else:
+                        return [(get_type_of_tender(tender["caption"]), action, ticker, quantity_offered, "N/A", "\u001b[31mREJECT\u001b[37m")]
         else:
             return [(get_type_of_tender(tender["caption"]), action, ticker, quantity_offered, "N/A", "\u001b[31mREJECT\u001b[37m")]
     elif action == "SELL":
@@ -338,9 +405,28 @@ def competitive_tender_model(s : api.requests.Session, tender_id : int):
                     #for a in bids_and_asks["asks"]:
                     #    ask_volume += a["quantity"] - a["quantity_filled"]
 
+                    asks = api.get(s, "securities/book", ticker = ticker, limit = ORDER_BOOK_SIZE)['asks']
+                    shares_accounted_for : int = 0
+                    ask_index : int = 0
+
+                    while shares_accounted_for < shares_to_be_shorted:
+                        shares_accounted_for += asks[ask_index]["quantity"] - asks[ask_index]["quantity_filled"]
+                        ask_index += 1
+                    
+                    buy_price : float = asks[0]["price"]
+
+                    sell_price_to_offer : float = asks[ask_index - 1]["price"]
+
+                    potential_profit : float = (sell_price_to_offer - buy_price) * shares_to_be_shorted
+
+                    instant_profit_from_sell : float = 0
+
+                    if shares_to_sell_instantly > 0:
+                        instant_profit_from_sell = (sell_price_to_offer - api.get(s, "securities", ticker = ticker)[0]["vwap"]) * shares_to_sell_instantly
+
                     spread = 100*(api.get(s, "securities", ticker = ticker)[0]["ask"]/api.get(s, "securities", ticker = ticker)[0]["bid"] - 1)
 
-                    if spread < MAX_SPREAD or shares_to_sell_instantly >= shares_to_be_shorted: # less volatile
+                    if spread < MAX_SPREAD or shares_to_sell_instantly >= shares_to_be_shorted: # less volatile or a decent amount of shares to sell instantly for profit
                         """if get_type_of_tender(tender["caption"]) == "Competitive":
                             ask_volume : int = 0
                             asks = api.get(s, "securities/book", ticker = ticker, limit = ORDER_BOOK_SIZE)['asks']
@@ -373,31 +459,35 @@ def competitive_tender_model(s : api.requests.Session, tender_id : int):
                             else:
                                 return [(get_type_of_tender(tender["caption"]), action, ticker, quantity_offered, round(vwap, 2), "\u001b[31mREJECT\u001b[37m")]
                         else:"""
-                        asks = api.get(s, "securities/book", ticker = ticker, limit = ORDER_BOOK_SIZE)['asks']
-                        shares_accounted_for : int = 0
-                        ask_index : int = 0
-
-                        while shares_accounted_for < shares_to_be_shorted:
-                            shares_accounted_for += asks[ask_index]["quantity"] - asks[ask_index]["quantity_filled"]
-                            ask_index += 1
-                        
-                        buy_price : float = asks[0]["price"]
-
-                        sell_price_to_offer : float = asks[ask_index - 1]["price"]
-
-                        potential_profit : float = (sell_price_to_offer - buy_price) * shares_to_be_shorted
-
-                        instant_profit_from_sell : float = 0
-
-                        if shares_to_sell_instantly > 0:
-                            instant_profit_from_sell = (sell_price_to_offer - api.get(s, "securities", ticker = ticker)[0]["vwap"]) * shares_to_sell_instantly
-
                         if instant_profit_from_sell + potential_profit > 0:
                             return [(get_type_of_tender(tender["caption"]), action, ticker, quantity_offered, sell_price_to_offer, "\u001b[32mACCEPT\u001b[37m"), (ticker, "BUY" if action == "SELL" else "SELL", int(shares_to_be_shorted / api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]), api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], shares_to_be_shorted % api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], buy_price)]
                         else:
+                            # print("instant_profit_from_sell: " + str(instant_profit_from_sell), "potential_profit: " + str(potential_profit))
                             return [(get_type_of_tender(tender["caption"]), action, ticker, quantity_offered, sell_price_to_offer, "\u001b[31mREJECT\u001b[37m")]
                     else:
-                        return [(get_type_of_tender(tender["caption"]), action, ticker, quantity_offered, 0, "\u001b[31mREJECT\u001b[37m")]
+                        price_data = api.get(s, "securities/history", ticker = ticker, limit = 20)
+                        last_5_ticks = []
+                        last_20_ticks = []
+                        for i in range(0, 5):
+                            last_5_ticks.append(price_data[i]["close"])
+                        for i in range(0, 20):
+                            last_20_ticks.append(price_data[i]["close"])
+
+                        sma5 = sum(last_5_ticks) / len(last_5_ticks) if len(last_5_ticks) > 0 else 0
+                        sma20 = sum(last_20_ticks) / len(last_20_ticks) if len(last_20_ticks) > 0 else 0
+
+                        # print("sma5: " + str(sma5))
+                        # print("sma20: " + str(sma20))
+
+                        if sma5 != 0 and sma20 != 0 and sma5 < sma20:
+                            if instant_profit_from_sell + potential_profit > 0:
+                                return [(get_type_of_tender(tender["caption"]), action, ticker, quantity_offered, sell_price_to_offer, "\u001b[32mACCEPT\u001b[37m"), (ticker, "BUY" if action == "SELL" else "SELL", int(shares_to_be_shorted / api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]), api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], shares_to_be_shorted % api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], buy_price)]
+                            else:
+                                # print("instant_profit_from_sell: " + str(instant_profit_from_sell), "potential_profit: " + str(potential_profit))
+                                return [(get_type_of_tender(tender["caption"]), action, ticker, quantity_offered, sell_price_to_offer, "\u001b[31mREJECT\u001b[37m")]
+                        else:
+                            return [(get_type_of_tender(tender["caption"]), action, ticker, quantity_offered, sell_price_to_offer, "\u001b[31mREJECT\u001b[37m")]
+
             else:
                 instant_profit_from_sell : float = 0
 
@@ -427,7 +517,7 @@ def competitive_tender_model(s : api.requests.Session, tender_id : int):
                 else:
                     return [(get_type_of_tender(tender["caption"]), action, ticker, quantity_offered, sell_price_to_offer, "\u001b[31mREJECT\u001b[37m")]
         else:
-            return [(get_type_of_tender(tender["caption"]), action, ticker, quantity_offered, 0, "\u001b[31mREJECT\u001b[37m")]
+            return [(get_type_of_tender(tender["caption"]), action, ticker, quantity_offered, "N/A", "\u001b[31mREJECT\u001b[37m")]
 
 def get_type_of_tender(caption : str):
     if 'institution' in caption:
@@ -477,8 +567,6 @@ def main():
 
                         if len(info) > 1:
                             
-                            print(info[1])
-
                             offload_info = info[1]
 
                             for i in range(offload_info[2]):
@@ -503,8 +591,6 @@ def main():
 
                         if len(info) > 1:
                             
-                            print(info[1])
-
                             offload_info = info[1]
 
                             for i in range(offload_info[2]):
@@ -518,7 +604,7 @@ def main():
                             print(formatted_order_df)
 
             api.sleep(api.SPEEDBUMP)
-        
+
 
 if __name__ == '__main__':
     api.signal.signal(api.signal.SIGINT, api.signal_handler)
