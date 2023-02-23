@@ -459,10 +459,10 @@ def main():
         while status == "ACTIVE":
             status = api.get(s, "case")["status"]
             tenders = api.get(s, "tenders")
-            tender_df.drop(tender_df.index, inplace = True)
-            order_df.drop(order_df.index, inplace = True)
             for tender in tenders:
-                if tender["tender_id"] not in ALL_TENDER_IDS and ((not tender["is_fixed_bid"] and tender["expires"] - api.get(s, "case")["tick"] < 10) or (tender["is_fixed_bid"])):
+                tender_df.drop(tender_df.index, inplace = True)
+                order_df.drop(order_df.index, inplace = True)
+                if tender["tender_id"] not in ALL_TENDER_IDS and ((not tender["is_fixed_bid"] and tender["expires"] - api.get(s, "case")["tick"] < 15) or (tender["is_fixed_bid"])):
                     ALL_TENDER_IDS.append(tender["tender_id"])
                     if tender["is_fixed_bid"]:
                         info = private_tender_model(s, tender["tender_id"])
