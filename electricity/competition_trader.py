@@ -125,7 +125,7 @@ def main():
 		
 			# update time
 			current_tick,current_period = update_time(s)
-			print(current_tick)
+			#print(current_tick)
 			
 			# parse news
 			sleep(1)
