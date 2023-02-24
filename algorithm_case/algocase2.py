@@ -198,7 +198,7 @@ def main():
 
             if tender_shares < 0:
                 # need to buy shares
-                if spread_ritc < MAX_SPREAD: #or shares_to_sell_instantly >= shares_to_be_shorted: # less volative
+                if 0 < MAX_SPREAD: #or shares_to_sell_instantly >= shares_to_be_shorted: # less volative
                     asks = api.get(session, "securities/book", ticker = ticker, limit = ORDER_BOOK_SIZE)['asks']
                     shares_accounted_for = 0
                     ask_index = 0
@@ -217,11 +217,12 @@ def main():
                     
                     #if instant_profit_from_sell + potential_profit > 0:
                     #order_id = submit_order(session, ticker, 'MARKET', size, 'BUY', None)
-                    #if buy_price < price_offered:
+                    if buy_price < price_offered:
                         #mkt_params = {'ticker': ticker, 'type': 'MARKET', 'quantity': size, 'action': 'BUY'}
                         #resp = session.post('http://localhost:9999/v1/orders', params=mkt_params)
-                        #resp = api.post(session, 'orders', ticker=ticker, type='MARKET', quantity=size, action='BUY')
-                else:
+                        resp = api.post(session, 'orders', ticker=ticker, type='MARKET', quantity=size, action='BUY')
+                '''
+                    else:
                     price_data = api.get(session, "securities/history", ticker = ticker, limit = 20)
                     asks = api.get(session, "securities/book", ticker = ticker, limit = ORDER_BOOK_SIZE)['asks']
                     shares_accounted_for = 0
@@ -245,10 +246,10 @@ def main():
                         #if buy_price < price_offered:
                             #mkt_params = {'ticker': ticker, 'type': 'MARKET', 'quantity': size, 'action': 'BUY'}
                             #resp = session.post('http://localhost:9999/v1/orders', params=mkt_params)
-                            #resp = api.post(session, 'orders', ticker=ticker, type='MARKET', quantity=size, action='BUY')
+                            #resp = api.post(session, 'orders', ticker=ticker, type='MARKET', quantity=size, action='BUY')'''
             elif tender_shares > 0:
                 # need to sell shares
-                if spread_ritc < MAX_SPREAD:
+                if 0 < MAX_SPREAD:
                     bids = api.get(session, "securities/book", ticker = ticker, limit = ORDER_BOOK_SIZE)['bids']
                     shares_accounted_for = 0
                     bid_index = 0
@@ -258,11 +259,12 @@ def main():
                         bid_index += 1
 
                     sell_price = bids[bid_index - 1]["price"]
-                    #if sell_price > price_offered:
+                    if sell_price > price_offered:
                         #mkt_params = {'ticker': ticker, 'type': 'MARKET', 'quantity': size, 'action': 'SELL'}
                         #resp = session.post('http://localhost:9999/v1/orders', params=mkt_params)
-                        #resp = api.post(session, 'orders', ticker=ticker, type='MARKET', quantity=size, action='SELL')
-                else:
+                        resp = api.post(session, 'orders', ticker=ticker, type='MARKET', quantity=size, action='SELL')
+                
+                        '''else:
                     if tick >= 20:
                         price_data = api.get(session, 'securities/history', ticker = ticker, limit = 20)
                         bids = api.get(session, "securities/book", ticker = ticker, limit = ORDER_BOOK_SIZE)['bids']
@@ -288,7 +290,7 @@ def main():
                             #if sell_price > price_offered:
                                 #mkt_params = {'ticker': ticker, 'type': 'MARKET', 'quantity': size, 'action': 'SELL'}
                                 #resp = session.post('http://localhost:9999/v1/orders', params=mkt_params)
-                                #resp = api.post(session, 'orders', ticker=ticker, type='MARKET', quantity=size, action='SELL')
+                                #resp = api.post(session, 'orders', ticker=ticker, type='MARKET', quantity=size, action='SELL')'''
             else:
                 continue
 
