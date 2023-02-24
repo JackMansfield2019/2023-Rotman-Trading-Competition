@@ -56,7 +56,7 @@ def submit_order(session, ticker, type_, quantity, action, price):
             print('The order was not successfully submitted!')
             return None
 
-def tender_buy(session, held_tenders, tender):
+def tender_buy(session, held_tenders, tender, tender_offer_prices : list):
     ticker = tender['ticker']
     tick = api.get(session, "case")["tick"]
     price_offered = float(tender['price'])
