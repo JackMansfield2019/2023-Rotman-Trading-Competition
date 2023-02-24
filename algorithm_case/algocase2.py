@@ -196,7 +196,7 @@ def main():
                 size = abs(tender_shares)
             else:
                 size = MAX_ORDER_SIZE
-            price_offered = 0
+            price_offered = 25
             
             if len(tender_offer_prices) > 0:
                 price_offered = tender_offer_prices[-1]
