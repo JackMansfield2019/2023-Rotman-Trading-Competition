@@ -581,6 +581,8 @@ def main():
                             if offload_info[4] > 0:
                                 order_df.loc[len(order_df)] = (offload_info[0], offload_info[1], offload_info[4], offload_info[5])
 
+                            order_df.index = order_df.index + 1
+
                             formatted_order_df = tabulate(order_df, headers = "keys", tablefmt = "fancy_grid")
 
                             print(formatted_order_df)
@@ -604,6 +606,8 @@ def main():
 
                             if offload_info[4] > 0:
                                 order_df.loc[len(order_df)] = (offload_info[0], offload_info[1], offload_info[4], offload_info[5])
+
+                            order_df.index = order_df.index + 1
 
                             formatted_order_df = tabulate(order_df, headers = "keys", tablefmt = "fancy_grid")
 
