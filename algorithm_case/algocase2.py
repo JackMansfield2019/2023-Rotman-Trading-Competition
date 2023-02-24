@@ -163,7 +163,7 @@ def main():
         status = api.get(session, 'case')['status']
         while(status != 'ACTIVE'):
             status = api.get(session, 'case')['status']
-            api.sleep(api.SPEEDBUMP)
+            api.sleep(.5)
 
         tick = api.get(session, "case")["tick"]
         held_tenders = []
