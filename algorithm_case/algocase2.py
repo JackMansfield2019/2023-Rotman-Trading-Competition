@@ -82,9 +82,10 @@ def tender_buy(session, held_tenders, tender, tender_offer_prices : list):
             if potential_profit > value_of_offer:
                 # accept tender offer, then sell to market immediately
                 api.post(session, 'tenders/' + str(tender_id))
-                order_id = submit_order(session, 'RITC', 'MARKET', quantity_offered, 'SELL', None)
-                mkt_params = {'ticker': 'RITC', 'type': 'MARKET', 'quantity': quantity_offered, 'action': 'SELL'}
-                resp = session.post('http://localhost:9999/v1/orders', params=mkt_params)
+                #order_id = submit_order(session, 'RITC', 'MARKET', quantity_offered, 'SELL', None)
+                #mkt_params = {'ticker': 'RITC', 'type': 'MARKET', 'quantity': quantity_offered, 'action': 'SELL'}
+                #resp = session.post('http://localhost:9999/v1/orders', params=mkt_params)
+                resp = api.post(session, 'orders', ticker=ticker, type='MARKET', quantity=size, action='SELL')
                 tender_offer_prices.append(tender['price'])
             else:
                 api.delete(session, 'tenders/' + str(tender_id))
@@ -136,8 +137,9 @@ def tender_sell(session, held_tenders, tender, tender_offer_prices : list):
                     # accept tender offer, then buy at market immediately
                     api.post(session, 'tenders/' + str(tender_id))
                     #order_id = submit_order(session, 'RITC', 'MARKET', quantity_offered, 'BUY', None)
-                    mkt_params = {'ticker': 'RITC', 'type': 'MARKET', 'quantity': quantity_offered, 'action': 'BUY'}
-                    resp = session.post('http://localhost:9999/v1/orders', params=mkt_params)
+                    #mkt_params = {'ticker': 'RITC', 'type': 'MARKET', 'quantity': quantity_offered, 'action': 'BUY'}
+                    #resp = session.post('http://localhost:9999/v1/orders', params=mkt_params)
+                    resp = api.post(session, 'orders', ticker=ticker, type='MARKET', quantity=size, action='BUY')
                     tender_offer_prices.append(tender['price'])
                 else:
                     api.delete(session, 'tenders/' + str(tender_id))
@@ -180,7 +182,8 @@ def main():
                         print(tender_offer_prices)
             spread_ritc = 100*(api.get(session, 'securities', ticker = ticker)[0]['ask']/api.get(session, 'securities', ticker = ticker)[0]['bid'] - 1)
             size = None
-            tender_shares = api.get(session, 'securities', kwargs={'ticker': ticker})[0]['position']
+            #tender_shares = api.get(session, 'securities', kwargs={'ticker': ticker})[0]['position']
+            tender_shares = api.get(session, 'securities', ticker='RITC')[0]['position']
         
             if abs(tender_shares) < MAX_ORDER_SIZE:
                 size = abs(tender_shares)
@@ -196,12 +199,12 @@ def main():
                     asks = api.get(session, "securities/book", ticker = ticker, limit = ORDER_BOOK_SIZE)['asks']
                     shares_accounted_for = 0
                     ask_index = 0
-
+                    
                     while shares_accounted_for <= size:
                         shares_accounted_for += asks[ask_index]["quantity"] - asks[ask_index]["quantity_filled"]
                         ask_index += 1
 
-                    buy_price = asks[0]['price']
+                    buy_price = asks[ask_index - 1]["price"]
                     #sell_price_to_offer = asks[ask_index - 1]["price"]
                     #potential_profit = (sell_price_to_offer - buy_price) * shares_to_be_shorted
                     #instant_profit_from_sell = 0
@@ -212,8 +215,9 @@ def main():
                     #if instant_profit_from_sell + potential_profit > 0:
                     #order_id = submit_order(session, ticker, 'MARKET', size, 'BUY', None)
                     if buy_price < price_offered:
-                        mkt_params = {'ticker': ticker, 'type': 'MARKET', 'quantity': size, 'action': 'BUY'}
-                        resp = session.post('http://localhost:9999/v1/orders', params=mkt_params)
+                        #mkt_params = {'ticker': ticker, 'type': 'MARKET', 'quantity': size, 'action': 'BUY'}
+                        #resp = session.post('http://localhost:9999/v1/orders', params=mkt_params)
+                        resp = api.post(session, 'orders', ticker=ticker, type='MARKET', quantity=size, action='BUY')
                 else:
                     price_data = api.get(session, "securities/history", ticker = ticker, limit = 20)
                     last_5_ticks = []
@@ -227,8 +231,9 @@ def main():
                     sma20 = sum(last_20_ticks) / len(last_20_ticks) if len(last_20_ticks) > 0 else 0
                     if sma20 != 0 and sma5 != 0 and sma5 > sma20:
                         if buy_price < price_offered:
-                            mkt_params = {'ticker': ticker, 'type': 'MARKET', 'quantity': size, 'action': 'BUY'}
-                            resp = session.post('http://localhost:9999/v1/orders', params=mkt_params)
+                            #mkt_params = {'ticker': ticker, 'type': 'MARKET', 'quantity': size, 'action': 'BUY'}
+                            #resp = session.post('http://localhost:9999/v1/orders', params=mkt_params)
+                            resp = api.post(session, 'orders', ticker=ticker, type='MARKET', quantity=size, action='BUY')
             elif tender_shares > 0:
                 # need to sell shares
                 if spread_ritc < MAX_SPREAD:
@@ -242,8 +247,9 @@ def main():
 
                     sell_price = bids[bid_index - 1]["price"]
                     if sell_price > price_offered:
-                        mkt_params = {'ticker': ticker, 'type': 'MARKET', 'quantity': size, 'action': 'SELL'}
-                        resp = session.post('http://localhost:9999/v1/orders', params=mkt_params)
+                        #mkt_params = {'ticker': ticker, 'type': 'MARKET', 'quantity': size, 'action': 'SELL'}
+                        #resp = session.post('http://localhost:9999/v1/orders', params=mkt_params)
+                        resp = api.post(session, 'orders', ticker=ticker, type='MARKET', quantity=size, action='SELL')
                 else:
                     if tick >= 20:
                         price_data = api.get(session, 'securities/history', ticker = ticker, limit = 20)
@@ -259,8 +265,9 @@ def main():
 
                         if sma20 != 0 and sma5 != 0 and sma5 > sma20:
                             if sell_price > price_offered:
-                                mkt_params = {'ticker': ticker, 'type': 'MARKET', 'quantity': size, 'action': 'SELL'}
-                                resp = session.post('http://localhost:9999/v1/orders', params=mkt_params)
+                                #mkt_params = {'ticker': ticker, 'type': 'MARKET', 'quantity': size, 'action': 'SELL'}
+                                #resp = session.post('http://localhost:9999/v1/orders', params=mkt_params)
+                                resp = api.post(session, 'orders', ticker=ticker, type='MARKET', quantity=size, action='SELL')
             else:
                 continue
 
