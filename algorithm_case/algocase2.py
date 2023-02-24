@@ -86,7 +86,7 @@ def tender_buy(session, held_tenders, tender, tender_offer_prices : list):
                 #order_id = submit_order(session, 'RITC', 'MARKET', quantity_offered, 'SELL', None)
                 #mkt_params = {'ticker': 'RITC', 'type': 'MARKET', 'quantity': quantity_offered, 'action': 'SELL'}
                 #resp = session.post('http://localhost:9999/v1/orders', params=mkt_params)
-                return tender['price']
+                return float(tender['price'])
             else:
                 api.delete(session, 'tenders/' + str(tender_id))
         else:
@@ -94,7 +94,7 @@ def tender_buy(session, held_tenders, tender, tender_offer_prices : list):
                 api.post(session, 'tenders/' + str(tender_id))
 
                 print("this is the tender offer price: " + str(tender['price']))
-                return tender['price']
+                return float(tender['price'])
             else:
                 api.delete(session, 'tenders/'+ str(tender_id))
     return 0
@@ -106,7 +106,7 @@ def tender_sell(session, held_tenders, tender, tender_offer_prices : list):
     gross_positions = api.get(session, "limits")[0]['gross']
     tender_id = tender['tender_id'] 
     quantity_offered = tender['quantity']
-    price_offered = tender['price']
+    price_offered = float(tender['price'])
     current_position = api.get(session, 'securities', ticker = 'RITC')[0]['position']
     shares_to_be_shorted = 0
 
@@ -142,14 +142,14 @@ def tender_sell(session, held_tenders, tender, tender_offer_prices : list):
                     #order_id = submit_order(session, 'RITC', 'MARKET', quantity_offered, 'BUY', None)
                     #mkt_params = {'ticker': 'RITC', 'type': 'MARKET', 'quantity': quantity_offered, 'action': 'BUY'}
                     #resp = session.post('http://localhost:9999/v1/orders', params=mkt_params)
-                    return tender['price']
+                    return float(tender['price'])
                 else:
                     api.delete(session, 'tenders/' + str(tender_id))
         elif instant_profit_from_sell > 0:
             api.post(session, 'tenders/' + str(tender_id))
             #order_id = submit_order(session, 'RITC', 'MARKET', quantity_offered, 'SELL', None)
             print("this is the tender price: " + str(tender['price']))
-            return tender['price']
+            return float(tender['price'])
         else:
             api.delete(session, 'tenders/' + str(tender_id))
     else:
