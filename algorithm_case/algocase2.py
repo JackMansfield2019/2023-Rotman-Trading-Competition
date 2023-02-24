@@ -189,6 +189,7 @@ def main():
                 size = abs(tender_shares)
             else:
                 size = MAX_ORDER_SIZE
+            price_offered = 0
             
             if len(tender_offer_prices) > 0:
                 price_offered = max(tender_offer_prices)
@@ -220,6 +221,15 @@ def main():
                         resp = api.post(session, 'orders', ticker=ticker, type='MARKET', quantity=size, action='BUY')
                 else:
                     price_data = api.get(session, "securities/history", ticker = ticker, limit = 20)
+                    asks = api.get(session, "securities/book", ticker = ticker, limit = ORDER_BOOK_SIZE)['asks']
+                    shares_accounted_for = 0
+                    ask_index = 0
+                    
+                    while shares_accounted_for <= size:
+                        shares_accounted_for += asks[ask_index]["quantity"] - asks[ask_index]["quantity_filled"]
+                        ask_index += 1
+
+                    buy_price = asks[ask_index - 1]["price"]
                     last_5_ticks = []
                     last_20_ticks = []
                     for i in range(0, 5):
@@ -253,6 +263,15 @@ def main():
                 else:
                     if tick >= 20:
                         price_data = api.get(session, 'securities/history', ticker = ticker, limit = 20)
+                        bids = api.get(session, "securities/book", ticker = ticker, limit = ORDER_BOOK_SIZE)['bids']
+                        shares_accounted_for = 0
+                        bid_index = 0
+
+                        while shares_accounted_for < MAX_ORDER_SIZE:
+                            shares_accounted_for += bids[bid_index]['quantity'] - bids[bid_index]['quantity_filled']
+                            bid_index += 1
+
+                        sell_price = bids[bid_index - 1]["price"]
                         last_5_ticks = []
                         last_20_ticks = []
                         for i in range(0, 5):
