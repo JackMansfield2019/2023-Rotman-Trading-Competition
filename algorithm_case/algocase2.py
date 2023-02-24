@@ -86,13 +86,14 @@ def tender_buy(session, held_tenders, tender, tender_offer_prices : list):
                 #order_id = submit_order(session, 'RITC', 'MARKET', quantity_offered, 'SELL', None)
                 #mkt_params = {'ticker': 'RITC', 'type': 'MARKET', 'quantity': quantity_offered, 'action': 'SELL'}
                 #resp = session.post('http://localhost:9999/v1/orders', params=mkt_params)
-                resp = api.post(session, 'orders', ticker=ticker, type='MARKET', quantity=MAX_ORDER_SIZE, action='SELL')
                 return tender['price']
             else:
                 api.delete(session, 'tenders/' + str(tender_id))
         else:
             if potential_profit > value_of_offer:
                 api.post(session, 'tenders/' + str(tender_id))
+
+                print("this is the tender offer price: " + str(tender['price']))
                 return tender['price']
             else:
                 api.delete(session, 'tenders/'+ str(tender_id))
@@ -141,13 +142,13 @@ def tender_sell(session, held_tenders, tender, tender_offer_prices : list):
                     #order_id = submit_order(session, 'RITC', 'MARKET', quantity_offered, 'BUY', None)
                     #mkt_params = {'ticker': 'RITC', 'type': 'MARKET', 'quantity': quantity_offered, 'action': 'BUY'}
                     #resp = session.post('http://localhost:9999/v1/orders', params=mkt_params)
-                    resp = api.post(session, 'orders', ticker=ticker, type='MARKET', quantity=MAX_ORDER_SIZE, action='BUY')
                     return tender['price']
                 else:
                     api.delete(session, 'tenders/' + str(tender_id))
         elif instant_profit_from_sell > 0:
             api.post(session, 'tenders/' + str(tender_id))
             #order_id = submit_order(session, 'RITC', 'MARKET', quantity_offered, 'SELL', None)
+            print("this is the tender price: " + str(tender['price']))
             return tender['price']
         else:
             api.delete(session, 'tenders/' + str(tender_id))
