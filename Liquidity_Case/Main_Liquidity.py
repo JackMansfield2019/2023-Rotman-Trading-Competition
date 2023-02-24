@@ -268,6 +268,9 @@ def competitive_tender_model(s : api.requests.Session, tender_id : int):
                         potential_profit += bids[bid_index]["price"] * (bids[bid_index]["quantity"] - bids[bid_index]["quantity_filled"])
                     bid_index += 1
 
+                # we will not win the tender if we chose the vwap price, so for now, setting vwap to a high bid
+                vwap = bids[bid_index]["price"]
+
                 if potential_profit > value_of_offer:
                     return [(get_type_of_tender(tender["caption"]), action, ticker, quantity_offered, round(vwap, 2), "\u001b[32mACCEPT\u001b[37m"), (ticker, "BUY" if action == "SELL" else "SELL", int(quantity_offered / api.get(s, "securities", ticker = ticker)[0]["max_trade_size"]), api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], quantity_offered % api.get(s, "securities", ticker = ticker)[0]["max_trade_size"], "MKT")]
                 else:
@@ -368,8 +371,6 @@ def competitive_tender_model(s : api.requests.Session, tender_id : int):
 
                     vwap : float = vol_times_price / ask_volume
 
-                    value_of_offer = shares_to_be_shorted * vwap
-
                     potential_profit : float = 0
                     asks = api.get(s, "securities/book", ticker = ticker, limit = ORDER_BOOK_SIZE)['asks']
                     shares_accounted_for : int = 0
@@ -382,6 +383,11 @@ def competitive_tender_model(s : api.requests.Session, tender_id : int):
                         else:
                             potential_profit += asks[ask_index]["price"] * (asks[ask_index]["quantity"] - asks[ask_index]["quantity_filled"])
                         ask_index += 1
+
+                    # for now, setting vwap to low ask to be competitive
+                    vwap = asks[ask_index]["price"]
+
+                    value_of_offer = shares_to_be_shorted * vwap
 
                     potential_profit = vwap * shares_to_be_shorted - potential_profit
 
