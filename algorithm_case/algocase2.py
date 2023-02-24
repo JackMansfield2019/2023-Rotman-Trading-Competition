@@ -194,7 +194,7 @@ def main():
             price_offered = 0
             
             if len(tender_offer_prices) > 0:
-                price_offered = max(tender_offer_prices)
+                price_offered = tender_offer_prices[-1]
 
             if tender_shares < 0:
                 # need to buy shares
