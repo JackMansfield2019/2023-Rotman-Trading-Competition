@@ -255,74 +255,77 @@ def main():
 		# Initialize the previous event type to None
 		prev_event_type = None
 		anns = 0
+		prev_tick = current_tick
 
 		while(True):
-
 			# update time
 			current_tick,current_period = update_time(s)
-			print(current_tick)
-			vol_data = pd.read_csv('vol_data.csv').squeeze("columns")
-			vols = vol_data.tolist()
-			
-			#volatilities = []
-			'''
-			1. print to a file, comma sperated list -- done 
-			2. empricaly figure out the standard deviation and find a way to print / save it somewhere -- done
-			3. print the Max and Min of the volailities -- done
-			4. print the average volatility as a number -- done
-			'''
-			# parse announcement
-			if current_tick in announcement_ticks or (current_tick == 0 and current_period == 2):
-				# Announcement event
-				if prev_event_type != "announcement":
-					# Only parse if not the same as previous event type
-					print("announcement")
-					anns += 1
-					last_news_id,volatility = parse_announcemnt(s)
-					vols.append(volatility)
-					std_dev = np.std(vols)
-					print(f'Max Volatility: {max(vols)}')
-					print(f"Min Volatility: {min(vols)}")
-					print(f"Avg Volatility: {sum(vols)/len(vols)}")
-					print(f'Standard Deviation: {std_dev}')
-					prev_event_type = "announcement"
-					vol_data = pd.Series(vols)
-					filename = "hist_vol.png"
-					remove_file(filename)
-					plt.figure()
-					plt.xlabel('volatilities')
-					plt.ylabel('occurences')
-					vol_data.hist(bins=[13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32])
-					plt.savefig('histograms/hist_vol.png')
-					with open('vol_data.csv', 'a', newline='') as file:
-						writer = csv.writer(file)
-						writer.writerow([volatility])
-						file.close()
-					with open('standard_deviations.csv','a',newline='') as file:
-						writer = csv.writer(file)
-						writer.writerow([std_dev])
+			if(current_tick != prev_tick):
+				prev_tick = current_tick
+				print(current_tick)
+				vol_data = pd.read_csv('vol_data.csv').squeeze("columns")
+				vols = vol_data.tolist()
+				
+				#volatilities = []
+				'''
+				1. print to a file, comma sperated list -- done 
+				2. empricaly figure out the standard deviation and find a way to print / save it somewhere -- done
+				3. print the Max and Min of the volailities -- done
+				4. print the average volatility as a number -- done
+				'''
+				# parse announcement
+				if current_tick in announcement_ticks or (current_tick == 0 and current_period == 2):
+					# Announcement event
+					if prev_event_type != "announcement":
+						# Only parse if not the same as previous event type
+						print("announcement")
+						anns += 1
+						last_news_id,volatility = parse_announcemnt(s)
+						vols.append(volatility)
+						std_dev = np.std(vols)
+						print(f'Max Volatility: {max(vols)}')
+						print(f"Min Volatility: {min(vols)}")
+						print(f"Avg Volatility: {sum(vols)/len(vols)}")
+						print(f'Standard Deviation: {std_dev}')
+						prev_event_type = "announcement"
+						vol_data = pd.Series(vols)
+						filename = "hist_vol.png"
+						remove_file(filename)
+						plt.clf()
+						plt.figure()
+						plt.xlabel('volatilities')
+						plt.ylabel('occurences')
+						vol_data.hist(bins=[15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30])
+						plt.savefig('histograms/hist_vol.png')
+						with open('vol_data.csv', 'a', newline='') as file:
+							writer = csv.writer(file)
+							writer.writerow([volatility])
+							file.close()
+						with open('standard_deviations.csv','a',newline='') as file:
+							writer = csv.writer(file)
+							writer.writerow([std_dev])
 
 
-			# parse estimate
-			elif current_tick in estimate_ticks and not (current_tick == 262 and current_period == 2):
-				# Estimate event
-				if prev_event_type != "estimate":
-					# Only parse if not the same as previous event type
-					print("estimate")
-					last_news_id,low,high = parse_esitmate(s)
-					prev_event_type = "estimate"
-					vol_range = high - low
-					vol_ranges.append(vol_range)
-					vol_range_data = pd.Series(vol_ranges)
-					filename = "hist_vol_ranges.png"
-					remove_file(filename)
-					plt.figure()
-					plt.xlabel('volatility ranges')
-					plt.ylabel('occurences')
-					vol_range_data.hist()
-					plt.savefig('histograms/hist_vol_ranges.png')
+				# parse estimate
+				elif current_tick in estimate_ticks and not (current_tick == 262 and current_period == 2):
+					# Estimate event
+					if prev_event_type != "estimate":
+						# Only parse if not the same as previous event type
+						print("estimate")
+						last_news_id,low,high = parse_esitmate(s)
+						prev_event_type = "estimate"
+						vol_range = high - low
+						vol_ranges.append(vol_range)
+						vol_range_data = pd.Series(vol_ranges)
+						filename = "hist_vol_ranges.png"
+						remove_file(filename)
+						plt.figure()
+						plt.xlabel('volatility ranges')
+						plt.ylabel('occurences')
+						vol_range_data.hist()
+						plt.savefig('histograms/hist_vol_ranges.png')
 
-			sleep(1)
+				#sleep(0.3)
 
 '''
 plt.legend()
