@@ -160,7 +160,7 @@ LAST_MINUTE_THRESHOLD = 60
 LIQUIDITY_RATIO_THRESHOLD = 100
 VOLUME_RATIO_THRESHOLD = 1.0
 MAX_SPREAD = 0.2
-TICKS_PER_PERIOD = 300 # need to change
+TICKS_PER_PERIOD = 300
 ORDER_BOOK_SIZE = 10000
 
 def last_minute_action(session, action, tender_id, ticker):
