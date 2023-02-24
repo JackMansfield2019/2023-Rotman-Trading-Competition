@@ -56,7 +56,7 @@ def submit_order(session, ticker, type_, quantity, action, price):
             print('The order was not successfully submitted!')
             return None
 
-def tender_buy(session, held_tenders, tender, tender_offer_prices : list):
+def tender_buy(session, held_tenders, tender):
     ticker = tender['ticker']
     tick = api.get(session, "case")["tick"]
     price_offered = float(tender['price'])
@@ -87,16 +87,16 @@ def tender_buy(session, held_tenders, tender, tender_offer_prices : list):
                 #mkt_params = {'ticker': 'RITC', 'type': 'MARKET', 'quantity': quantity_offered, 'action': 'SELL'}
                 #resp = session.post('http://localhost:9999/v1/orders', params=mkt_params)
                 resp = api.post(session, 'orders', ticker=ticker, type='MARKET', quantity=MAX_ORDER_SIZE, action='SELL')
-                tender_offer_prices.append(tender['price'])
+                return tender['price']
             else:
                 api.delete(session, 'tenders/' + str(tender_id))
         else:
             if potential_profit > value_of_offer:
                 api.post(session, 'tenders/' + str(tender_id))
-                tender_offer_prices.append(tender['price'])
+                return tender['price']
             else:
                 api.delete(session, 'tenders/'+ str(tender_id))
-    return tender_offer_prices
+    return 0
 
 def tender_sell(session, held_tenders, tender, tender_offer_prices : list):  
     ticker = tender['ticker']
@@ -142,18 +142,18 @@ def tender_sell(session, held_tenders, tender, tender_offer_prices : list):
                     #mkt_params = {'ticker': 'RITC', 'type': 'MARKET', 'quantity': quantity_offered, 'action': 'BUY'}
                     #resp = session.post('http://localhost:9999/v1/orders', params=mkt_params)
                     resp = api.post(session, 'orders', ticker=ticker, type='MARKET', quantity=MAX_ORDER_SIZE, action='BUY')
-                    tender_offer_prices.append(tender['price'])
+                    return tender['price']
                 else:
                     api.delete(session, 'tenders/' + str(tender_id))
         elif instant_profit_from_sell > 0:
             api.post(session, 'tenders/' + str(tender_id))
             #order_id = submit_order(session, 'RITC', 'MARKET', quantity_offered, 'SELL', None)
-            tender_offer_prices.append(tender['price'])
+            return tender['price']
         else:
             api.delete(session, 'tenders/' + str(tender_id))
     else:
         api.delete(session, 'tenders/' + str(tender_id))
-    return tender_offer_prices
+    return 0
     
 
 def main():
@@ -177,10 +177,14 @@ def main():
                     print("tender received")
                     action = tender['action']
                     if action == 'BUY':
-                        tender_offer_prices = tender_buy(session, held_tenders, tender, tender_offer_prices)
+                        offer_price = tender_buy(session, held_tenders, tender, tender_offer_prices)
+                        if offer_price > 0:
+                            tender_offer_prices.append(offer_price)
                         print(tender_offer_prices)
                     else:
-                        tender_offer_prices = tender_sell(session, held_tenders, tender, tender_offer_prices)
+                        offer_price = tender_sell(session, held_tenders, tender, tender_offer_prices)
+                        if offer_price > 0:
+                            tender_offer_prices.append(offer_price)
                         print(tender_offer_prices)
             spread_ritc = 100*(api.get(session, 'securities', ticker = ticker)[0]['ask']/api.get(session, 'securities', ticker = ticker)[0]['bid'] - 1)
             size = None
