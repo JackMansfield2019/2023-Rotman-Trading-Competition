@@ -32,7 +32,7 @@ MAX_VOLUME = 5000
 # Maximum number oforder we can sumbit
 MAX_ORDERS = 5
 # Allowed spread before we sell or buy shares
-SPREAD = 0.05
+SPREAD = 0.15
 # self tuned risk threshold
 RISK_THRESH = 0.6
 # average weekly volatility measured empirically
@@ -64,6 +64,7 @@ global opt_gross_limit
 global opt_net_limit 
 global ETF_gross_limit
 global ETF_net_limit
+global total_current_delta
 
 # time info
 global current_tick
@@ -173,11 +174,6 @@ def api_delete(session : requests.Session, endpoint: str, **kwargs : dict) -> di
 	return payload
 
 #======================================== OBJECTS ========================================
-'''
-positoins array be arb oppertunities that we have taken
-this way when I want to close out an arb oppertunity I can 
-'''
-import math
 
 class Arb_Opp:
 	def __init__(self, s : requests.Session, og_expected_vol: float, og_implied_vol: float, og_price: float, og_p_hat: float, 
@@ -289,6 +285,9 @@ class Arb_Opp:
 		self.update()
 		self.max_quanity = self.quantity
 		pass
+	def buy(q):
+		
+		return
 		
 
 #======================================== HELPER FUNCTIONS ========================================
@@ -395,8 +394,7 @@ def calc_theta(security : dict, stock_price : float, volatility : float) -> floa
 	#annual_theta_calc = theta(flag, S, K, T, R, sigma) * 365
 	return theta(flag, S, K, T, R, sigma)
 
-# if Trying to find probability  that we make addtional profit use: current_volatility + 1 
-# if trying to find probability that we break even a week before experiration use: weeks_til_expeiration - 1 
+ 
 def calc_break_even_prob(current_volatility, lower_bound, weeks_til_expeiration, avg_weekly_vol, std_dev) -> float:
 
 	total_surplus :float =  math.floor((current_volatility - lower_bound)/2.0 ) # the amount of surplus volitlity we will need to get back to breakeven
@@ -457,12 +455,9 @@ def prob_hitting_p_hat(security : dict, p_hat : float, ticks_til_expiration : in
 			prev_probabilities.append(0.0)
 			continue
 		
-		#print("t:",(ticks_til_expiration - (75 * (weeks_til_expiration - i))))
-		#print("vol_needed_to_hit_phat: ",vol_needed_to_hit_phat)
 		if vol_needed_to_hit_phat == 0.0:
 			prev_probabilities.append(0.0)
 			continue
-		#print(vol_needed_to_hit_phat)
 
 		# if there is a specfic probaility for the 1st week that the user wants us to consider 
 		if i == 0 and vol_range != None:
@@ -493,15 +488,12 @@ def prob_hitting_p_hat(security : dict, p_hat : float, ticks_til_expiration : in
 		weekly_vol_needed_to_hit_phat : float = vol_needed_to_hit_phat * math.sqrt(1/52.1429)
 
 		prob_of_getting_weekly_vol_needed_to_hit_phat_on_a_given_week : float = 1.0 - norm.cdf(weekly_vol_needed_to_hit_phat, AVG_VOL, STD_DEV)
-		#print("prob_of_getting_weekly_vol_needed_to_hit_phat_on_a_given_week",prob_of_getting_weekly_vol_needed_to_hit_phat_on_a_given_week)
 		
 		prob_of_getting_weekly_vol_needed_to_hit_phat_each_week : float =  math.pow(prob_of_getting_weekly_vol_needed_to_hit_phat_on_a_given_week,(weeks_til_expiration - i))
-		#print("prob_of_getting_weekly_vol_needed_to_hit_phat_each_week:",prob_of_getting_weekly_vol_needed_to_hit_phat_each_week)
-
-		#if i == 0:
+		
+		#add to list of previous probabilities
 		prev_probabilities.append(prob_of_getting_weekly_vol_needed_to_hit_phat_each_week)
-		#else:
-		#	prev_probabilities.append( prev_probabilities[-1] + prob_of_getting_weekly_vol_needed_to_hit_phat_each_week)
+
 	return sum(prev_probabilities) / len(prev_probabilities)
 
 #======================================== CASE FUNCTIONS ========================================
@@ -559,6 +551,7 @@ def main():
 	global opt_net_limit 
 	global ETF_gross_limit
 	global ETF_net_limit
+	global total_current_delta
 
 	# Time info
 	global current_tick
@@ -615,11 +608,12 @@ def main():
 		parsed_first_news = False
 
 		# Initlaize my portfolio of Arb_Opps
-		portflio = []
+		holdings : list[Arb_Opp]= []
 		
 
 		# MAIN LOOP
 		while(True):
+			total_current_delta = 0
 			# update time
 			current_tick,current_period = update_time(s)
 			if current_tick == prev_tick:
@@ -630,12 +624,12 @@ def main():
 				print(current_tick, " ", current_period)
 
 			#========================================== PARSE NEWS ==========================================
-			
+			last_news_id       = 0
 			# INITIALIZE NEWS VARIABLES
+			
 			if current_tick > 0 and not parsed_first_news:
 					payload = api_get(s, "news", since = 0)	
-					last_news_id       = payload[0]["news_id"]
-					days_per_heat      = int(nth_word(payload[-1]["body"], 34))
+					
 
 					delta_limit        = int(re.sub(",", "", nth_word(payload[-2]["body"], 8).strip(',')))
 					penalty_percentage = int(nth_word(payload[-2]["body"], 14)[:-1])
@@ -644,13 +638,13 @@ def main():
 					
 					# set the flag
 					parsed_first_news = True
-
+			
 			if(current_tick > 262):
 				next_estimate = 37
 				next_annoucement = 0
  
 			if (current_tick % 75 >= 37 and current_tick >= next_estimate and current_tick < 263):
-				if(current_period == 2 and current_tick > 261):
+				if(current_period == 5 and current_tick > 261):
 					continue 
 				print(last_news_id)
 				last_news_id,low,high = parse_esitmate(s)
@@ -671,7 +665,10 @@ def main():
 			neg_arb_counter = 0
 
 			new_arb_opps = []
+			pos_delta_arb_opps : list[Arb_Opp]= []
+			neg_delta_arb_opps : list[Arb_Opp]= []
 
+			trade_counter = 0
 			# Iterate through each Securities 
 			for i, security in enumerate(securities):
 
@@ -738,7 +735,6 @@ def main():
 							# long the underlying asset to hedge
 							api_post(s,"orders", ticker = "RTM", type = "MARKET", quantity = 100, action = "BUY" )
 							continue
-
 				
 				# Calulate our volatiity estimate
 				if(new_annoucement):
@@ -747,7 +743,7 @@ def main():
 					estimated_volatility : float = ( ((low + high)/2.0) * (75.0/ticks_til_expiration) + (1.0 - (75.0/ticks_til_expiration)) * AVG_VOL )/100.0
 					
 
-				if(new_annoucement or new_estimate):
+				if(new_annoucement or new_estimate and current_tick > 76):
 
 					'''
 					print()
@@ -828,8 +824,21 @@ def main():
 							portfolio = {
 								security["ticker"] : 1
 							},
-						)
-						new_arb_opps.append(arb_opp)
+						)					
+						# Calc quantity needed to overcome Trading fee and add 3
+						q = math.ceil( 2.00 / ( p_hat - (security["bid"] + security["ask"])/2 ) ) + 3
+						arb_opp.quantity =  q
+
+						# long the call option
+						api_post(s,"orders", ticker = security["ticker"], type = "MARKET", quantity = q, action = "BUY" )
+						
+						# short the underlying to hedge
+						api_post(s,"orders", ticker = "RTM", type = "MARKET", quantity = q*100, action = "SELL" )
+
+						total_current_delta += arb_opp.current_delta * q * 100
+						holdings.append(arb_opp)
+
+						trade_counter += 2
 
 					#if over priced 
 					elif implied_volatility > estimated_volatility + .015 and p_hat - market_price <= -SPREAD:
@@ -855,7 +864,24 @@ def main():
 								security["ticker"] : -1
 							}
 						)
-						new_arb_opps.append(arb_opp)
+						holdings.append(arb_opp)
+
+						#Calc quantity needed to overcome Trading fee
+						q = math.ceil( 2.00 / ( p_hat - ((security["bid"] + security["ask"])/2) ) ) + 3
+						arb_opp.quantity = q
+						api_post(s,"orders", ticker = security["ticker"], type = "MARKET", quantity = q, action = "SELL" )
+
+						# long the underlying asset to hedge
+						api_post(s,"orders", ticker = "RTM", type = "MARKET", quantity = q*100, action = "BUY" )
+
+						total_current_delta += arb_opp.current_delta * q * 100
+
+						trade_counter += 2
+
+				if(trade_counter > 8 and i != len(securities)-1 ):
+					sleep(1)
+					trade_counter = 0
+
 
 
 			if(new_annoucement or new_estimate):
@@ -871,23 +897,53 @@ def main():
 			#========================================== OPTIMIZATION PROBLEM ==========================================
 
 			#========================================== PORTFOLIO MANAGEMENT ==========================================
-			'''
-			if(new_estimate):
-				# if the range is equal to or greater than my volatility estimate  
-				if(volatility <= low):
-					prob_up = 1.0
-					prob_down = 0.0
-				# if the range is stictly less than my volatility estimate  
-				elif(volatility > high):
-					prob_up = 0.0
-					prob_down = 1.0
-				else:
-					prob_down = (volatility - low) / 6
-					prob_up = 1.0 - prob_down
+			# update time to ensure we are on the right tick
+			current_tick,current_period = update_time(s)
+			
+			# Calulate the options weeks til expiration
+			ticks_til_expiration : int = (security["stop_period"] * 300) - ((current_period -1 ) * 300) + current_tick
 
-				print("Prob up: ",prob_up)
-				print("prob down: ", prob_down)
+			# Calulate the options weeks til expiration
+			weeks_til_expiration : int = math.floor(((security["stop_period"] * 300) - ((current_period -1 ) * 300) + current_tick ) / 75.0)
+
+			# Ignore non-option securities
 			'''
+			rtm = api_get(s,"securities", ticker = "RTM")
+
+			# grab current underlying stock price 
+			stock_price = (rtm["bid"] + rtm["ask"])/2.0
+
+			for i , arb_op in enumerate(holdings):
+				obj = api_get(s,"securities", ticker = arb_opp.portfolio[0])
+				current_price = (obj["bid"] + obj["ask"])/2
+				if current_price >= arb_op.current_p_hat:
+					if(arb_opp.opt_net_cost > 1):
+						api_post(s,"orders", ticker = arb_opp.portfolio[0], type = "MARKET", quantity =  arb_opp.quantity, action = "SELL" )
+					else:
+						api_post(s,"orders", ticker = arb_opp.portfolio[0], type = "MARKET", quantity =  arb_opp.quantity, action = "BUY" )
+			'''
+
+
+			'''
+			for i, security in enumerate(securities):
+				if(new_estimate):
+					# if the range is equal to or greater than my volatility estimate  
+					if(estimated_volatility <= low):
+						prob_up = 1.0
+						prob_down = 0.0
+					# if the range is stictly less than my volatility estimate  
+					elif(estimated_volatility > high):
+						prob_up = 0.0
+						prob_down = 1.0
+					else:
+						prob_down = (estimated_volatility - low) / 6
+						prob_up = 1.0 - prob_down
+				
+					if prob_down >= RISK_THRESH and security["position"] > 0:
+						api_post(s,"orders", ticker = security["ticker"], type = "MARKET", quantity = math.floor(prob_down * security["position"]), action = "SELL" )
+			'''
+
+			
 			#========================================== PLACE TRADES ==========================================
 			
 			new_estimate = False

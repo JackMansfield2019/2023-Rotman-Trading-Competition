@@ -1,0 +1,389 @@
+[1mdiff --git a/Liquidity_Case/API_Requests.py b/Liquidity_Case/API_Requests.py[m
+[1mindex 5958c9c..53c8727 100644[m
+[1m--- a/Liquidity_Case/API_Requests.py[m
+[1m+++ b/Liquidity_Case/API_Requests.py[m
+[36m@@ -13,7 +13,7 @@[m [mdef signal_handler(signum, frame):[m
+ 	shutdown = True[m
+ [m
+ [m
+[31m-API_KEY = {'X-API-key': '8CVIPIDF'} # Save your API key for easy access.[m
+[32m+[m[32mAPI_KEY = {'X-API-key': '0HKYGOCC'} # Save your API key for easy access.[m
+ BASE_URL = 'http://localhost:9999/v1/'[m
+ shutdown = False[m
+ [m
+[36m@@ -33,7 +33,6 @@[m [mSPEEDBUMP = 0.5[m
+ def get(session : requests.Session, endpoint: str, **kwargs : dict) -> dict:[m
+ 	'''[m
+ 	Makes a custom GET request to a specified endpoint in the RIT API[m
+[31m-[m
+ 		Parameters:[m
+ 			Session (requests.Session): Current Session Object[m
+ 			endpoint (String): name of the end point ex "case" or "assets/history" or "orders/{insert your id here}"[m
+[36m@@ -61,7 +60,6 @@[m [mdef get(session : requests.Session, endpoint: str, **kwargs : dict) -> dict:[m
+ def post(session : requests.Session, endpoint: str, **kwargs : dict) -> dict:[m
+ 	'''[m
+ 	Makes a custom POST request to a specified endpoint in the RIT API[m
+[31m-[m
+ 		Parameters:[m
+ 			Session (requests.Session): Current Session Object[m
+ 			endpoint (String): name of the end point ex "case" or "assets/history" or "orders/{insert your id here}"[m
+[36m@@ -88,7 +86,6 @@[m [mdef post(session : requests.Session, endpoint: str, **kwargs : dict) -> dict:[m
+ def delete(session : requests.Session, endpoint: str, **kwargs : dict) -> dict:[m
+ 	'''[m
+ 	Makes a custom DELETE request to a specified endpoint in the RIT API[m
+[31m-[m
+ 		Parameters:[m
+ 			Session (requests.Session): Current Session Object[m
+ 			endpoint (String): name of the end point ex "case" or "assets/history" or "orders/{insert your id here}"[m
+[36m@@ -110,4 +107,4 @@[m [mdef delete(session : requests.Session, endpoint: str, **kwargs : dict) -> dict:[m
+ 		print('API DELETE FAILED')[m
+ 		raise ApiException(payload['code'] + ": " + payload['message'])[m
+ [m
+[31m-	return payload[m
+[32m+[m	[32mreturn payload[m
+\ No newline at end of file[m
+[1mdiff --git a/Volatility_Case/Volatility_Main_V2.py b/Volatility_Case/Volatility_Main_V2.py[m
+[1mindex 197a0a3..5aad11b 100644[m
+[1m--- a/Volatility_Case/Volatility_Main_V2.py[m
+[1m+++ b/Volatility_Case/Volatility_Main_V2.py[m
+[36m@@ -32,7 +32,7 @@[m [mMAX_VOLUME = 5000[m
+ # Maximum number oforder we can sumbit[m
+ MAX_ORDERS = 5[m
+ # Allowed spread before we sell or buy shares[m
+[31m-SPREAD = 0.05[m
+[32m+[m[32mSPREAD = 0.15[m[41m[m
+ # self tuned risk threshold[m
+ RISK_THRESH = 0.6[m
+ # average weekly volatility measured empirically[m
+[36m@@ -64,6 +64,7 @@[m [mglobal opt_gross_limit[m
+ global opt_net_limit [m
+ global ETF_gross_limit[m
+ global ETF_net_limit[m
+[32m+[m[32mglobal total_current_delta[m[41m[m
+ [m
+ # time info[m
+ global current_tick[m
+[36m@@ -173,11 +174,6 @@[m [mdef api_delete(session : requests.Session, endpoint: str, **kwargs : dict) -> di[m
+ 	return payload[m
+ [m
+ #======================================== OBJECTS ========================================[m
+[31m-'''[m
+[31m-positoins array be arb oppertunities that we have taken[m
+[31m-this way when I want to close out an arb oppertunity I can [m
+[31m-'''[m
+[31m-import math[m
+ [m
+ class Arb_Opp:[m
+ 	def __init__(self, s : requests.Session, og_expected_vol: float, og_implied_vol: float, og_price: float, og_p_hat: float, [m
+[36m@@ -289,6 +285,9 @@[m [mclass Arb_Opp:[m
+ 		self.update()[m
+ 		self.max_quanity = self.quantity[m
+ 		pass[m
+[32m+[m	[32mdef buy(q):[m[41m[m
+[32m+[m[41m		[m
+[32m+[m		[32mreturn[m[41m[m
+ 		[m
+ [m
+ #======================================== HELPER FUNCTIONS ========================================[m
+[36m@@ -395,8 +394,7 @@[m [mdef calc_theta(security : dict, stock_price : float, volatility : float) -> floa[m
+ 	#annual_theta_calc = theta(flag, S, K, T, R, sigma) * 365[m
+ 	return theta(flag, S, K, T, R, sigma)[m
+ [m
+[31m-# if Trying to find probability  that we make addtional profit use: current_volatility + 1 [m
+[31m-# if trying to find probability that we break even a week before experiration use: weeks_til_expeiration - 1 [m
+[32m+[m[41m [m
+ def calc_break_even_prob(current_volatility, lower_bound, weeks_til_expeiration, avg_weekly_vol, std_dev) -> float:[m
+ [m
+ 	total_surplus :float =  math.floor((current_volatility - lower_bound)/2.0 ) # the amount of surplus volitlity we will need to get back to breakeven[m
+[36m@@ -457,12 +455,9 @@[m [mdef prob_hitting_p_hat(security : dict, p_hat : float, ticks_til_expiration : in[m
+ 			prev_probabilities.append(0.0)[m
+ 			continue[m
+ 		[m
+[31m-		#print("t:",(ticks_til_expiration - (75 * (weeks_til_expiration - i))))[m
+[31m-		#print("vol_needed_to_hit_phat: ",vol_needed_to_hit_phat)[m
+ 		if vol_needed_to_hit_phat == 0.0:[m
+ 			prev_probabilities.append(0.0)[m
+ 			continue[m
+[31m-		#print(vol_needed_to_hit_phat)[m
+ [m
+ 		# if there is a specfic probaility for the 1st week that the user wants us to consider [m
+ 		if i == 0 and vol_range != None:[m
+[36m@@ -493,15 +488,12 @@[m [mdef prob_hitting_p_hat(security : dict, p_hat : float, ticks_til_expiration : in[m
+ 		weekly_vol_needed_to_hit_phat : float = vol_needed_to_hit_phat * math.sqrt(1/52.1429)[m
+ [m
+ 		prob_of_getting_weekly_vol_needed_to_hit_phat_on_a_given_week : float = 1.0 - norm.cdf(weekly_vol_needed_to_hit_phat, AVG_VOL, STD_DEV)[m
+[31m-		#print("prob_of_getting_weekly_vol_needed_to_hit_phat_on_a_given_week",prob_of_getting_weekly_vol_needed_to_hit_phat_on_a_given_week)[m
+ 		[m
+ 		prob_of_getting_weekly_vol_needed_to_hit_phat_each_week : float =  math.pow(prob_of_getting_weekly_vol_needed_to_hit_phat_on_a_given_week,(weeks_til_expiration - i))[m
+[31m-		#print("prob_of_getting_weekly_vol_needed_to_hit_phat_each_week:",prob_of_getting_weekly_vol_needed_to_hit_phat_each_week)[m
+[31m-[m
+[31m-		#if i == 0:[m
+[32m+[m[41m		[m
+[32m+[m		[32m#add to list of previous probabilities[m[41m[m
+ 		prev_probabilities.append(prob_of_getting_weekly_vol_needed_to_hit_phat_each_week)[m
+[31m-		#else:[m
+[31m-		#	prev_probabilities.append( prev_probabilities[-1] + prob_of_getting_weekly_vol_needed_to_hit_phat_each_week)[m
+[32m+[m[41m[m
+ 	return sum(prev_probabilities) / len(prev_probabilities)[m
+ [m
+ #======================================== CASE FUNCTIONS ========================================[m
+[36m@@ -559,6 +551,7 @@[m [mdef main():[m
+ 	global opt_net_limit [m
+ 	global ETF_gross_limit[m
+ 	global ETF_net_limit[m
+[32m+[m	[32mglobal total_current_delta[m[41m[m
+ [m
+ 	# Time info[m
+ 	global current_tick[m
+[36m@@ -615,11 +608,12 @@[m [mdef main():[m
+ 		parsed_first_news = False[m
+ [m
+ 		# Initlaize my portfolio of Arb_Opps[m
+[31m-		portflio = [][m
+[32m+[m		[32mholdings : list[Arb_Opp]= [][m[41m[m
+ 		[m
+ [m
+ 		# MAIN LOOP[m
+ 		while(True):[m
+[32m+[m			[32mtotal_current_delta = 0[m[41m[m
+ 			# update time[m
+ 			current_tick,current_period = update_time(s)[m
+ 			if current_tick == prev_tick:[m
+[36m@@ -630,12 +624,12 @@[m [mdef main():[m
+ 				print(current_tick, " ", current_period)[m
+ [m
+ 			#========================================== PARSE NEWS ==========================================[m
+[31m-			[m
+[32m+[m			[32mlast_news_id       = 0[m[41m[m
+ 			# INITIALIZE NEWS VARIABLES[m
+[32m+[m[41m			[m
+ 			if current_tick > 0 and not parsed_first_news:[m
+ 					payload = api_get(s, "news", since = 0)	[m
+[31m-					last_news_id       = payload[0]["news_id"][m
+[31m-					days_per_heat      = int(nth_word(payload[-1]["body"], 34))[m
+[32m+[m[41m					[m
+ [m
+ 					delta_limit        = int(re.sub(",", "", nth_word(payload[-2]["body"], 8).strip(',')))[m
+ 					penalty_percentage = int(nth_word(payload[-2]["body"], 14)[:-1])[m
+[36m@@ -644,13 +638,13 @@[m [mdef main():[m
+ 					[m
+ 					# set the flag[m
+ 					parsed_first_news = True[m
+[31m-[m
+[32m+[m[41m			[m
+ 			if(current_tick > 262):[m
+ 				next_estimate = 37[m
+ 				next_annoucement = 0[m
+  [m
+ 			if (current_tick % 75 >= 37 and current_tick >= next_estimate and current_tick < 263):[m
+[31m-				if(current_period == 2 and current_tick > 261):[m
+[32m+[m				[32mif(current_period == 5 and current_tick > 261):[m[41m[m
+ 					continue [m
+ 				print(last_news_id)[m
+ 				last_news_id,low,high = parse_esitmate(s)[m
+[36m@@ -671,7 +665,10 @@[m [mdef main():[m
+ 			neg_arb_counter = 0[m
+ [m
+ 			new_arb_opps = [][m
+[32m+[m			[32mpos_delta_arb_opps : list[Arb_Opp]= [][m[41m[m
+[32m+[m			[32mneg_delta_arb_opps : list[Arb_Opp]= [][m[41m[m
+ [m
+[32m+[m			[32mtrade_counter = 0[m[41m[m
+ 			# Iterate through each Securities [m
+ 			for i, security in enumerate(securities):[m
+ [m
+[36m@@ -738,7 +735,6 @@[m [mdef main():[m
+ 							# long the underlying asset to hedge[m
+ 							api_post(s,"orders", ticker = "RTM", type = "MARKET", quantity = 100, action = "BUY" )[m
+ 							continue[m
+[31m-[m
+ 				[m
+ 				# Calulate our volatiity estimate[m
+ 				if(new_annoucement):[m
+[36m@@ -747,7 +743,7 @@[m [mdef main():[m
+ 					estimated_volatility : float = ( ((low + high)/2.0) * (75.0/ticks_til_expiration) + (1.0 - (75.0/ticks_til_expiration)) * AVG_VOL )/100.0[m
+ 					[m
+ [m
+[31m-				if(new_annoucement or new_estimate):[m
+[32m+[m				[32mif(new_annoucement or new_estimate and current_tick > 76):[m[41m[m
+ [m
+ 					'''[m
+ 					print()[m
+[36m@@ -828,8 +824,21 @@[m [mdef main():[m
+ 							portfolio = {[m
+ 								security["ticker"] : 1[m
+ 							},[m
+[31m-						)[m
+[31m-						new_arb_opps.append(arb_opp)[m
+[32m+[m						[32m)[m[41m					[m
+[32m+[m						[32m# Calc quantity needed to overcome Trading fee and add 3[m[41m[m
+[32m+[m						[32mq = math.ceil( 2.00 / ( p_hat - (security["bid"] + security["ask"])/2 ) ) + 3[m[41m[m
+[32m+[m						[32marb_opp.quantity =  q[m[41m[m
+[32m+[m[41m[m
+[32m+[m						[32m# long the call option[m[41m[m
+[32m+[m						[32mapi_post(s,"orders", ticker = security["ticker"], type = "MARKET", quantity = q, action = "BUY" )[m[41m[m
+[32m+[m[41m						[m
+[32m+[m						[32m# short the underlying to hedge[m[41m[m
+[32m+[m						[32mapi_post(s,"orders", ticker = "RTM", type = "MARKET", quantity = q*100, action = "SELL" )[m[41m[m
+[32m+[m[41m[m
+[32m+[m						[32mtotal_current_delta += arb_opp.current_delta * q * 100[m[41m[m
+[32m+[m						[32mholdings.append(arb_opp)[m[41m[m
+[32m+[m[41m[m
+[32m+[m						[32mtrade_counter += 2[m[41m[m
+ [m
+ 					#if over priced [m
+ 					elif implied_volatility > estimated_volatility + .015 and p_hat - market_price <= -SPREAD:[m
+[36m@@ -855,7 +864,24 @@[m [mdef main():[m
+ 								security["ticker"] : -1[m
+ 							}[m
+ 						)[m
+[31m-						new_arb_opps.append(arb_opp)[m
+[32m+[m						[32mholdings.append(arb_opp)[m[41m[m
+[32m+[m[41m[m
+[32m+[m						[32m#Calc quantity needed to overcome Trading fee[m[41m[m
+[32m+[m						[32mq = math.ceil( 2.00 / ( p_hat - ((security["bid"] + security["ask"])/2) ) ) + 3[m[41m[m
+[32m+[m						[32marb_opp.quantity = q[m[41m[m
+[32m+[m						[32mapi_post(s,"orders", ticker = security["ticker"], type = "MARKET", quantity = q, action = "SELL" )[m[41m[m
+[32m+[m[41m[m
+[32m+[m						[32m# long the underlying asset to hedge[m[41m[m
+[32m+[m						[32mapi_post(s,"orders", ticker = "RTM", type = "MARKET", quantity = q*100, action = "BUY" )[m[41m[m
+[32m+[m[41m[m
+[32m+[m						[32mtotal_current_delta += arb_opp.current_delta * q * 100[m[41m[m
+[32m+[m[41m[m
+[32m+[m						[32mtrade_counter += 2[m[41m[m
+[32m+[m[41m[m
+[32m+[m				[32mif(trade_counter > 8 and i != len(securities)-1 ):[m[41m[m
+[32m+[m					[32msleep(1)[m[41m[m
+[32m+[m					[32mtrade_counter = 0[m[41m[m
+[32m+[m[41m[m
+ [m
+ [m
+ 			if(new_annoucement or new_estimate):[m
+[36m@@ -871,23 +897,53 @@[m [mdef main():[m
+ 			#========================================== OPTIMIZATION PROBLEM ==========================================[m
+ [m
+ 			#========================================== PORTFOLIO MANAGEMENT ==========================================[m
+[32m+[m			[32m# update time to ensure we are on the right tick[m[41m[m
+[32m+[m			[32mcurrent_tick,current_period = update_time(s)[m[41m[m
+[32m+[m[41m			[m
+[32m+[m			[32m# Calulate the options weeks til expiration[m[41m[m
+[32m+[m			[32mticks_til_expiration : int = (security["stop_period"] * 300) - ((current_period -1 ) * 300) + current_tick[m[41m[m
+[32m+[m[41m[m
+[32m+[m			[32m# Calulate the options weeks til expiration[m[41m[m
+[32m+[m			[32mweeks_til_expiration : int = math.floor(((security["stop_period"] * 300) - ((current_period -1 ) * 300) + current_tick ) / 75.0)[m[41m[m
+[32m+[m[41m[m
+[32m+[m			[32m# Ignore non-option securities[m[41m[m
+ 			'''[m
+[31m-			if(new_estimate):[m
+[31m-				# if the range is equal to or greater than my volatility estimate  [m
+[31m-				if(volatility <= low):[m
+[31m-					prob_up = 1.0[m
+[31m-					prob_down = 0.0[m
+[31m-				# if the range is stictly less than my volatility estimate  [m
+[31m-				elif(volatility > high):[m
+[31m-					prob_up = 0.0[m
+[31m-					prob_down = 1.0[m
+[31m-				else:[m
+[31m-					prob_down = (volatility - low) / 6[m
+[31m-					prob_up = 1.0 - prob_down[m
+[32m+[m			[32mrtm = api_get(s,"securities", ticker = "RTM")[m[41m[m
+[32m+[m[41m[m
+[32m+[m			[32m# grab current underlying stock price[m[41m [m
+[32m+[m			[32mstock_price = (rtm["bid"] + rtm["ask"])/2.0[m[41m[m
+[32m+[m[41m[m
+[32m+[m			[32mfor i , arb_op in enumerate(holdings):[m[41m[m
+[32m+[m				[32mobj = api_get(s,"securities", ticker = arb_opp.portfolio[0])[m[41m[m
+[32m+[m				[32mcurrent_price = (obj["bid"] + obj["ask"])/2[m[41m[m
+[32m+[m				[32mif current_price >= arb_op.current_p_hat:[m[41m[m
+[32m+[m					[32mif(arb_opp.opt_net_cost > 1):[m[41m[m
+[32m+[m						[32mapi_post(s,"orders", ticker = arb_opp.portfolio[0], type = "MARKET", quantity =  arb_opp.quantity, action = "SELL" )[m[41m[m
+[32m+[m					[32melse:[m[41m[m
+[32m+[m						[32mapi_post(s,"orders", ticker = arb_opp.portfolio[0], type = "MARKET", quantity =  arb_opp.quantity, action = "BUY" )[m[41m[m
+[32m+[m			[32m'''[m[41m[m
+[32m+[m[41m[m
+ [m
+[31m-				print("Prob up: ",prob_up)[m
+[31m-				print("prob down: ", prob_down)[m
+ 			'''[m
+[32m+[m			[32mfor i, security in enumerate(securities):[m[41m[m
+[32m+[m				[32mif(new_estimate):[m[41m[m
+[32m+[m					[32m# if the range is equal to or greater than my volatility estimate[m[41m  [m
+[32m+[m					[32mif(estimated_volatility <= low):[m[41m[m
+[32m+[m						[32mprob_up = 1.0[m[41m[m
+[32m+[m						[32mprob_down = 0.0[m[41m[m
+[32m+[m					[32m# if the range is stictly less than my volatility estimate[m[41m  [m
+[32m+[m					[32melif(estimated_volatility > high):[m[41m[m
+[32m+[m						[32mprob_up = 0.0[m[41m[m
+[32m+[m						[32mprob_down = 1.0[m[41m[m
+[32m+[m					[32melse:[m[41m[m
+[32m+[m						[32mprob_down = (estimated_volatility - low) / 6[m[41m[m
+[32m+[m						[32mprob_up = 1.0 - prob_down[m[41m[m
+[32m+[m[41m				[m
+[32m+[m					[32mif prob_down >= RISK_THRESH and security["position"] > 0:[m[41m[m
+[32m+[m						[32mapi_post(s,"orders", ticker = security["ticker"], type = "MARKET", quantity = math.floor(prob_down * security["position"]), action = "SELL" )[m[41m[m
+[32m+[m			[32m'''[m[41m[m
+[32m+[m[41m[m
+[32m+[m[41m			[m
+ 			#========================================== PLACE TRADES ==========================================[m
+ 			[m
+ 			new_estimate = False[m
+[1mdiff --git a/Volatility_Case/histograms/hist_vol.png b/Volatility_Case/histograms/hist_vol.png[m
+[1mindex 786cc02..5a12d07 100644[m
+Binary files a/Volatility_Case/histograms/hist_vol.png and b/Volatility_Case/histograms/hist_vol.png differ
+[1mdiff --git a/Volatility_Case/histograms/hist_vol_ranges.png b/Volatility_Case/histograms/hist_vol_ranges.png[m
+[1mindex 7ed75b0..fda9165 100644[m
+Binary files a/Volatility_Case/histograms/hist_vol_ranges.png and b/Volatility_Case/histograms/hist_vol_ranges.png differ
+[1mdiff --git a/Volatility_Case/standard_deviations.csv b/Volatility_Case/standard_deviations.csv[m
+[1mindex f4798d3..87e7951 100644[m
+[1m--- a/Volatility_Case/standard_deviations.csv[m
+[1m+++ b/Volatility_Case/standard_deviations.csv[m
+[36m@@ -1386,3 +1386,22 @@[m
+ 3.896188346764672[m
+ 3.8961683536744025[m
+ 3.8950890324620513[m
+[32m+[m[32m3.8945952603627374[m[41m[m
+[32m+[m[32m3.895622975378346[m[41m[m
+[32m+[m[32m3.8943426540824047[m[41m[m
+[32m+[m[32m3.8938465005543845[m[41m[m
+[32m+[m[32m3.8940162130043405[m[41m[m
+[32m+[m[32m3.892738022919484[m[41m[m
+[32m+[m[32m3.89375400863196[m[41m[m
+[32m+[m[32m3.8932540845594454[m[41m[m
+[32m+[m[32m3.8942625903306753[m[41m[m
+[32m+[m[32m3.8929858364204786[m[41m[m
+[32m+[m[32m3.892483625144905[m[41m[m
+[32m+[m[32m3.892641233697588[m[41m[m
+[32m+[m[32m3.8913666276840737[m[41m[m
+[32m+[m[32m3.892363684770552[m[41m[m
+[32m+[m[32m3.8918578376056634[m[41m[m
+[32m+[m[32m3.8928475689352218[m[41m[m
+[32m+[m[32m3.8915744468647526[m[41m[m
+[32m+[m[32m3.8910664036090172[m[41m[m
+[32m+[m[32m3.8912122300233833[m[41m[m
+[1mdiff --git a/Volatility_Case/vol_data.csv b/Volatility_Case/vol_data.csv[m
+[1mindex 5159656..438c421 100644[m
+[1m--- a/Volatility_Case/vol_data.csv[m
+[1m+++ b/Volatility_Case/vol_data.csv[m
+[36m@@ -1390,3 +1390,22 @@[m
+ 24[m
+ 20[m
+ 22[m
+[32m+[m[32m27[m[41m[m
+[32m+[m[32m29[m[41m[m
+[32m+[m[32m25[m[41m[m
+[32m+[m[32m27[m[41m[m
+[32m+[m[32m28[m[41m[m
+[32m+[m[32m25[m[41m[m
+[32m+[m[32m29[m[41m[m
+[32m+[m[32m27[m[41m[m
+[32m+[m[32m29[m[41m[m
+[32m+[m[32m25[m[41m[m
+[32m+[m[32m27[m[41m[m
+[32m+[m[32m28[m[41m[m
+[32m+[m[32m25[m[41m[m
+[32m+[m[32m29[m[41m[m
+[32m+[m[32m27[m[41m[m
+[32m+[m[32m29[m[41m[m
+[32m+[m[32m25[m[41m[m
+[32m+[m[32m27[m[41m[m
+[32m+[m[32m28[m[41m[m

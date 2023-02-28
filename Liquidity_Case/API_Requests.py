@@ -13,7 +13,7 @@ def signal_handler(signum, frame):
 	shutdown = True
 
 
-API_KEY = {'X-API-key': '8CVIPIDF'} # Save your API key for easy access.
+API_KEY = {'X-API-key': '0HKYGOCC'} # Save your API key for easy access.
 BASE_URL = 'http://localhost:9999/v1/'
 shutdown = False
 
@@ -33,7 +33,6 @@ SPEEDBUMP = 0.5
 def get(session : requests.Session, endpoint: str, **kwargs : dict) -> dict:
 	'''
 	Makes a custom GET request to a specified endpoint in the RIT API
-
 		Parameters:
 			Session (requests.Session): Current Session Object
 			endpoint (String): name of the end point ex "case" or "assets/history" or "orders/{insert your id here}"
@@ -61,7 +60,6 @@ def get(session : requests.Session, endpoint: str, **kwargs : dict) -> dict:
 def post(session : requests.Session, endpoint: str, **kwargs : dict) -> dict:
 	'''
 	Makes a custom POST request to a specified endpoint in the RIT API
-
 		Parameters:
 			Session (requests.Session): Current Session Object
 			endpoint (String): name of the end point ex "case" or "assets/history" or "orders/{insert your id here}"
@@ -88,7 +86,6 @@ def post(session : requests.Session, endpoint: str, **kwargs : dict) -> dict:
 def delete(session : requests.Session, endpoint: str, **kwargs : dict) -> dict:
 	'''
 	Makes a custom DELETE request to a specified endpoint in the RIT API
-
 		Parameters:
 			Session (requests.Session): Current Session Object
 			endpoint (String): name of the end point ex "case" or "assets/history" or "orders/{insert your id here}"
